@@ -26,11 +26,39 @@ export const navigation = [
 
 export const experience = [
   {
-    period: '2020 — 2021',
-    company: 'Edsin Cloud E.I.R.L.',
+    period: 'Mar. 2025 — Jun. 2026',
+    company: 'Municipalidad Provincial de Lucanas Puquio',
+    role: 'Desarrollador y Soporte de Sistemas',
+    description: 'Soporte técnico y funcional del Sistema de Recaudación Municipal (SRM). Actualización e implementación de módulos, además del desarrollo y mantenimiento de funcionalidades.',
+    technologies: ['PHP', 'Bootstrap', 'SRM', 'Soporte técnico'],
+  },
+  {
+    period: 'Abr. 2024 — Sept. 2024',
+    company: 'Krodam S.A.C.',
+    role: 'Desarrollador Backend',
+    description: 'Desarrollo del módulo de Gestión de Kardex bajo una arquitectura de microservicios, incluyendo su contenerización y gestión de tareas del proyecto.',
+    technologies: ['Java 17', 'Spring Boot 3', 'MongoDB', 'Docker', 'Jira', 'Microservicios'],
+  },
+  {
+    period: 'Jul. 2023 — Feb. 2024',
+    company: 'Consorcio Gremcosur S.A.C.',
+    role: 'Desarrollador Backend',
+    description: 'Desarrollo del módulo de gestión de tienda para una plataforma marketplace, aplicando arquitectura hexagonal y controlando el flujo de tareas mediante GitHub.',
+    technologies: ['Java 17', 'Spring Boot 3', 'PostgreSQL 14', 'GitHub', 'Arquitectura hexagonal'],
+  },
+  {
+    period: 'Mar. 2022 — Abr. 2023',
+    company: 'EdsinCloud E.I.R.L.',
     role: 'Desarrollador Full Stack',
-    description: 'Participé en el desarrollo de soluciones web, integrando interfaces, lógica de negocio y persistencia de datos dentro de un flujo de trabajo colaborativo.',
-    technologies: ['Java', 'Spring', 'React', 'PostgreSQL'],
+    description: 'Desarrollo e implementación de una aplicación web y despliegue en servidores de la universidad mediante Debian y Docker. Implementación de interfaces con Pipes, interceptores y Guards, además del uso de librerías como SweetAlert2 y Bootstrap.',
+    technologies: ['Java 8', 'Spring Boot', 'JPA', 'Angular 8', 'PostgreSQL', 'Docker', 'Debian'],
+  },
+  {
+    period: 'Feb. 2020 — Nov. 2020',
+    company: 'Digital Corp Perú S.A.C.',
+    role: 'Soporte de Tecnología',
+    description: 'Participación en una empresa peruana dedicada a brindar servicios y soluciones de tecnología, ingeniería y medio ambiente, comprometida con la entrega de resultados de alto nivel.',
+    technologies: ['Tecnología', 'Soporte técnico', 'Ingeniería'],
   },
 ]
 
