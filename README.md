@@ -1,8 +1,34 @@
-# React + Vite
+# Portafolio de Juan de la Cruz
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Portafolio profesional desarrollado con React, Vite y CSS responsive.
 
-Currently, two official plugins are available:
+## Desarrollo local
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+```bash
+npm install
+npm run dev
+```
+
+## Comandos
+
+- `npm run dev`: inicia el servidor de desarrollo.
+- `npm run build`: genera la versión de producción.
+- `npm run lint`: ejecuta el análisis estático.
+- `npm run preview`: previsualiza la compilación.
+
+## Arquitectura
+
+```text
+src/
+├── assets/                 # Imágenes e iconos
+├── components/
+│   ├── layout/             # Estructura global
+│   ├── sections/           # Secciones de la página
+│   └── ui/                 # Componentes reutilizables
+├── data/portfolio.js       # Contenido del portafolio
+├── hooks/useTheme.js       # Lógica de tema
+├── App.jsx                 # Composición de la aplicación
+└── index.css               # Estilos base
+```
+
+Para modificar textos, enlaces, experiencia, tecnologías o proyectos, edita `src/data/portfolio.js`.
