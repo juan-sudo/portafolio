@@ -29,14 +29,14 @@ src/
 ├── hooks/useTheme.js       # Lógica de tema
 ├── App.jsx                 # Composición de la aplicación
 └── index.css               # Estilos base
-server/                     # Backend del chat (proxy a Ollama)
+server/                     # Backend del chat (proxy de IA)
 ```
 
 Para modificar textos, enlaces, experiencia, tecnologías o proyectos, edita `src/data/portfolio.js`. El chat usa automáticamente esos mismos datos como contexto, así que se mantiene actualizado sin tocar nada más.
 
-## Chat con IA (Ollama)
+## Chat con IA
 
-El widget de chat (botón flotante) llama a un pequeño backend en `server/` que guarda la clave de Ollama de forma segura — **la clave nunca debe ponerse en el código del frontend**, porque quedaría visible para cualquiera que inspeccione la página.
+El widget de chat y el asistente de aprendizaje llaman al backend de `server/`. El widget usa Ollama; las preguntas que no coinciden con una lección del chat de aprendizaje se envían a Groq, que responde como tutor usando el contexto del módulo. Las claves permanecen en el backend — **nunca las pongas en el frontend**, porque quedarían visibles para cualquiera que inspeccione la página.
 
 ### Ejecutar en local
 
@@ -44,14 +44,16 @@ El widget de chat (botón flotante) llama a un pequeño backend en `server/` que
 # Terminal 1: backend del chat
 cd server
 npm install
-cp .env.example .env   # y pega tu OLLAMA_API_KEY real ahí
+cp .env.example .env   # configura las claves que vayas a utilizar
 npm start              # queda escuchando en http://localhost:8787
 
 # Terminal 2: frontend
 npm run dev
 ```
 
-Por defecto el frontend llama a `http://localhost:8787/api/chat`. Para apuntar a otra URL, crea un `.env` en la raíz con:
+Configura `GROQ_API_KEY` en `server/.env` con una clave válida de Groq para habilitar el tutor IA. Por defecto usa `openai/gpt-oss-120b`; puedes cambiarlo con `GROQ_MODEL`. El portafolio llama a `http://localhost:8787/api/chat` y el aprendizaje a `http://localhost:8787/api/learn-chat` (tutor) y `http://localhost:8787/api/learn-exam` (exámenes generados por IA según el nivel; si el servidor no responde se usan preguntas locales de respaldo).
+
+Para apuntar el widget de portafolio a otra URL, crea un `.env` en la raíz con:
 
 ```
 VITE_CHAT_API_URL=https://tu-backend-desplegado.onrender.com/api/chat
@@ -61,7 +63,7 @@ VITE_CHAT_API_URL=https://tu-backend-desplegado.onrender.com/api/chat
 
 1. Sube el repo a GitHub (el archivo `server/.env` nunca se sube, está en `.gitignore`).
 2. En Render (u otro proveedor): crea un **Web Service** con *root directory* `server`, build command `npm install` y start command `npm start`.
-3. En las variables de entorno del servicio, agrega `OLLAMA_API_KEY` con tu clave (generada en [ollama.com/settings/keys](https://ollama.com/settings/keys)) y opcionalmente `ALLOWED_ORIGIN` con el dominio del portafolio.
-4. Toma la URL pública del servicio y configúrala como `VITE_CHAT_API_URL` (con `/api/chat` al final) en las variables de entorno donde despliegues el frontend, luego vuelve a compilar (`npm run build`).
+3. En las variables de entorno del servicio, agrega `GROQ_API_KEY` con tu clave (generada en [console.groq.com/keys](https://console.groq.com/keys)); configura `OLLAMA_API_KEY` si también quieres habilitar el widget del portafolio. Agrega `ALLOWED_ORIGIN` con el dominio del portafolio.
+4. Configura `VITE_CHAT_API_URL` con la URL del backend más `/api/chat`, y `VITE_LEARN_CHAT_API_URL` con la URL del backend más `/api/learn-chat` en el despliegue del frontend. Luego vuelve a compilar (`npm run build`).
 
 > ⚠️ **Importante:** si tu clave de Ollama ya fue compartida en un chat, correo o repositorio público, regenérala en ollama.com/settings/keys y actualiza el valor en tu `.env` y en el proveedor donde despliegues el backend. Nunca subas archivos `.env` a git.

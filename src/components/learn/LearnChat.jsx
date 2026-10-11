@@ -1,26 +1,41 @@
 import { useEffect, useRef, useState } from 'react'
 import { LEARN_ROUTE, learnModules } from '../../data/learn'
+import { buildExamQuestions, shuffle } from '../../lib/examQuestions'
 import { canRun } from '../../lib/runners'
-import { SendIcon } from '../ui/Icons'
+import { MoonIcon, SendIcon, SunIcon } from '../ui/Icons'
 import { CodeMessage } from './CodeMessage'
 
 const COMPARISON_ID = 'vs'
+const FINAL_EXAM_ID = 'examen-final'
 const TYPING_DELAY_MS = 900
+const EXAM_PASS_RATE = 0.7
+const LEARN_CHAT_API_URL = import.meta.env.VITE_LEARN_CHAT_API_URL || 'http://localhost:8787/api/learn-chat'
+const LEARN_EXAM_API_URL = import.meta.env.VITE_LEARN_EXAM_API_URL || LEARN_CHAT_API_URL.replace(/learn-chat$/, 'learn-exam')
+const EXAM_TIMEOUT_MS = 45_000
+const EXAM_CONTEXT_LIMIT = 8_000
+const EXAM_SEEN_LIMIT = 20
 
 const normalize = (text) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
-const words = (text) => normalize(text).split(/[^a-z0-9]+/).filter((word) => word.length >= 4)
 
 let nextEntryId = 0
 const newEntryId = () => ++nextEntryId
 
 function buildChats({ levels, comparison }) {
   return [
-    ...levels.map((level) => ({
-      id: `nivel-${level.level}`,
+    ...levels.map((level, index) => ({
+      id: `nivel-${level.level}-${index}`,
+      index,
       avatar: level.level,
       name: `Nivel ${level.level} · ${level.title}`,
       items: level.topics,
     })),
+    {
+      id: FINAL_EXAM_ID,
+      type: 'final-exam',
+      avatar: '★',
+      name: 'Examen final',
+      items: [],
+    },
     {
       id: COMPARISON_ID,
       avatar: 'VS',
@@ -30,35 +45,57 @@ function buildChats({ levels, comparison }) {
   ]
 }
 
-// Busca el tema que mejor coincide con lo que escribió el usuario
+// Solo devuelve una lección si el usuario escribió su título (completo o una parte);
+// cualquier otra consulta es una pregunta libre y la responde el tutor IA
 function findItem(query, items) {
   const text = normalize(query)
-  if (!text) return null
-  const exact = items.find((item) => normalize(item.title) === text)
-  if (exact) return exact
-  const partial = items.find((item) => normalize(item.title).includes(text) || text.includes(normalize(item.title)))
-  if (partial) return partial
-
-  const queryWords = words(query)
-  let best = null
-  let bestScore = 0
-  items.forEach((item) => {
-    const titleWords = words(item.title)
-    const score = queryWords.filter((word) => titleWords.some((title) => title.startsWith(word) || word.startsWith(title))).length
-    if (score > bestScore) {
-      best = item
-      bestScore = score
-    }
-  })
-  return best
+  if (text.length < 3) return null
+  return items.find((item) => normalize(item.title) === text)
+    ?? items.find((item) => normalize(item.title).includes(text))
+    ?? null
 }
 
-export function LearnChat({ module }) {
+// Resume las lecciones del nivel para que el tutor IA escriba preguntas acordes a lo visto
+function buildExamContext(module, chat, topics) {
+  const lessons = []
+  let size = 0
+  for (const topic of shuffle(topics)) {
+    const parts = module.languages.flatMap(({ key, label }) => {
+      const content = topic.examCode?.[key] ?? topic[key]
+      if (typeof content !== 'string' || !content.trim()) return []
+      const output = topic.expectedOutput?.[key] ?? topic.output?.[key]
+      const result = typeof output === 'string' ? `\nResultado: ${output.slice(0, 120)}` : ''
+      return [`${label}:\n${content.slice(0, 350)}${result}`]
+    })
+    const lesson = [`Tema: ${topic.title}`, topic.prompt, ...parts].filter(Boolean).join('\n')
+    if (size + lesson.length > EXAM_CONTEXT_LIMIT) continue
+    lessons.push(lesson)
+    size += lesson.length
+  }
+  return [
+    `Módulo: ${module.label}. ${chat.type === 'final-exam' ? 'Examen final de todo el módulo' : chat.name}.`,
+    `Lenguajes: ${module.languages.map((language) => language.label).join(', ')}.`,
+    ...lessons,
+  ].join('\n\n')
+}
+
+function progressKey(moduleId, type, index) {
+  return `learn-${moduleId}-${type}${index === undefined ? '' : `-${index}`}`
+}
+
+export function LearnChat({ module, theme, onToggleTheme }) {
   const chats = buildChats(module)
   const [activeId, setActiveId] = useState(chats[0].id)
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [history, setHistory] = useState({})
+  const [passedLevels, setPassedLevels] = useState(() => module.levels.map((_, index) => (
+    localStorage.getItem(progressKey(module.id, 'level', index)) === 'passed'
+  )))
+  const [finalExamPassed, setFinalExamPassed] = useState(() => (
+    localStorage.getItem(progressKey(module.id, 'final')) === 'passed'
+  ))
+  const [activeExam, setActiveExam] = useState(null)
 
   const search = normalize(query)
   const visibleChats = chats
@@ -79,15 +116,76 @@ export function LearnChat({ module }) {
     return chat.items.filter((item) => !asked.has(item.title)).length
   }
 
+  // Pide el examen al tutor IA con el contenido del nivel; si falla, usa las preguntas locales
+  const startExam = (chat) => {
+    const isFinal = chat.type === 'final-exam'
+    const topics = isFinal ? module.levels.flatMap((level) => level.topics) : module.levels[chat.index].topics
+    const count = isFinal ? 10 : 5
+    const exam = { id: newEntryId(), kind: isFinal ? 'final' : 'level', levelIndex: chat.index, questions: [], loading: true }
+    const seenKey = progressKey(module.id, 'exam-seen', isFinal ? 'final' : chat.index)
+    const finish = (questions, source) => setActiveExam((current) => (
+      current?.id === exam.id ? { ...exam, loading: false, source, questions } : current
+    ))
+    setActiveExam(exam)
+
+    let seen = []
+    try {
+      seen = JSON.parse(localStorage.getItem(seenKey)) ?? []
+    } catch {
+      seen = []
+    }
+
+    fetch(LEARN_EXAM_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ context: buildExamContext(module, chat, topics), count, avoid: seen }),
+      signal: AbortSignal.timeout(EXAM_TIMEOUT_MS),
+    })
+      .then(async (response) => {
+        const data = await response.json()
+        if (!response.ok) throw new Error(data.error || 'No se pudo generar el examen.')
+        if (!Array.isArray(data.questions) || data.questions.length < count) throw new Error('Examen incompleto.')
+        const asked = data.questions.map((question) => `${question.prompt} ${question.material}`.trim().slice(0, 200))
+        localStorage.setItem(seenKey, JSON.stringify([...seen, ...asked].slice(-EXAM_SEEN_LIMIT)))
+        finish(data.questions.map((question, index) => ({
+          ...question,
+          id: `ai-${exam.id}-${index}`,
+          options: shuffle(question.options),
+        })), 'ai')
+      })
+      .catch((error) => {
+        console.error('No se pudo generar el examen con el tutor IA:', error)
+        finish(buildExamQuestions(topics, module, count), 'local')
+      })
+  }
+
   const openChat = (id) => {
+    const chat = chats.find((item) => item.id === id)
+    if (!chat) return
     setActiveId(id)
     setIsChatOpen(true)
+    setActiveExam(chat.type === 'final-exam' ? activeExam : null)
+    if (chat.type === 'final-exam') startExam(chat)
+  }
+
+  const markExamPassed = (exam) => {
+    if (exam.kind === 'final') {
+      localStorage.setItem(progressKey(module.id, 'final'), 'passed')
+      setFinalExamPassed(true)
+      return
+    }
+
+    localStorage.setItem(progressKey(module.id, 'level', exam.levelIndex), 'passed')
+    setPassedLevels((current) => current.map((passed, index) => (
+      index === exam.levelIndex ? true : passed
+    )))
   }
 
   // Devuelve el id de la respuesta para que la conversación muestre "escribiendo…" antes de ella
   const send = (text) => {
     const item = findItem(text, activeChat.items)
     const question = { id: newEntryId(), kind: 'question', text: item ? item.title : text }
+    const currentHistory = history[activeChat.id] ?? []
     let reply
 
     if (item) {
@@ -96,10 +194,61 @@ export function LearnChat({ module }) {
       const other = chats.find((chat) => chat.id !== activeChat.id && findItem(text, chat.items))
       reply = other
         ? { id: newEntryId(), kind: 'redirect', chatId: other.id, chatName: other.name, title: findItem(text, other.items).title }
-        : { id: newEntryId(), kind: 'unknown' }
+        : { id: newEntryId(), kind: 'ai-pending' }
     }
 
     setHistory((current) => ({ ...current, [activeChat.id]: [...(current[activeChat.id] ?? []), question, reply] }))
+    if (reply.kind === 'ai-pending') {
+      const messages = currentHistory.flatMap((entry) => {
+        if (entry.kind === 'question') return [{ role: 'user', content: entry.text }]
+        if (entry.kind === 'ai') return [{ role: 'assistant', content: entry.content }]
+        return []
+      })
+      messages.push({ role: 'user', content: text })
+
+      const lessonContext = [
+        `Módulo: ${module.label}.`,
+        `Chat actual: ${activeChat.name}.`,
+        `Lenguajes: ${module.languages.map((language) => language.label).join(', ')}.`,
+        `Temas disponibles:\n${activeChat.items.map((lesson) => {
+          const explanation = module.languages
+            .map(({ key, label }) => lesson[key] ? `${label}: ${lesson[key]}` : null)
+            .filter(Boolean)
+            .join('\n')
+          return `${lesson.title}${explanation ? `\n${explanation}` : ''}`
+        }).join('\n\n')}`,
+      ].join('\n\n')
+
+      fetch(LEARN_CHAT_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages, context: lessonContext }),
+      })
+        .then(async (response) => {
+          const data = await response.json()
+          if (!response.ok) throw new Error(data.error || 'El asistente no pudo responder.')
+          if (typeof data.reply !== 'string' || !data.reply.trim()) {
+            throw new Error('El asistente devolvió una respuesta vacía.')
+          }
+          setHistory((current) => ({
+            ...current,
+            [activeChat.id]: current[activeChat.id].map((entry) => (
+              entry.id === reply.id ? { id: reply.id, kind: 'ai', content: data.reply } : entry
+            )),
+          }))
+        })
+        .catch((error) => {
+          console.error('No se pudo obtener una respuesta del tutor IA:', error)
+          setHistory((current) => ({
+            ...current,
+            [activeChat.id]: current[activeChat.id].map((entry) => (
+              entry.id === reply.id
+                ? { id: reply.id, kind: 'ai-error', content: error.message }
+                : entry
+            )),
+          }))
+        })
+    }
     return reply.id
   }
 
@@ -107,7 +256,15 @@ export function LearnChat({ module }) {
     <div className={isChatOpen ? 'wa wa-chat-open' : 'wa'}>
       <aside className="wa-sidebar" aria-label="Temas">
         <div className="wa-sidebar-header">
-          <h1>Aprende a programar</h1>
+          <div className="wa-heading">
+            <h1>Aprende a programar</h1>
+            <div className="wa-heading-actions">
+              <a className="learn-back" href="#inicio">← Volver</a>
+              <button className="icon-button" type="button" onClick={onToggleTheme} aria-label={`Activar tema ${theme === 'dark' ? 'claro' : 'oscuro'}`}>
+                {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+              </button>
+            </div>
+          </div>
         </div>
         <div className="wa-search">
           <input
@@ -133,6 +290,7 @@ export function LearnChat({ module }) {
         <ul className="wa-chat-list">
           {visibleChats.map((chat) => {
             const pending = pendingCount(chat)
+            const completed = chat.type === 'final-exam' ? finalExamPassed : chat.index !== undefined && passedLevels[chat.index]
             return (
               <li key={chat.id}>
                 <button
@@ -145,11 +303,19 @@ export function LearnChat({ module }) {
                   <span className="wa-chat-item-body">
                     <span className="wa-chat-item-top">
                       <span className="wa-chat-item-name">{chat.name}</span>
-                      {pending > 0
+                      {completed
+                          ? <span className="wa-chat-item-done" aria-label="Aprobado">✓✓</span>
+                          : chat.type === 'final-exam'
+                            ? <span className="wa-chat-item-count">10</span>
+                            : pending > 0
                         ? <span className="wa-chat-item-count" aria-label={`${pending} temas por ver`}>{pending}</span>
-                        : <span className="wa-chat-item-done" aria-label="Completado">✓✓</span>}
+                        : <span className="wa-chat-item-done" aria-label="Temas revisados">✓✓</span>}
                     </span>
-                    <span className="wa-chat-item-preview">{chat.preview}</span>
+                    <span className="wa-chat-item-preview">
+                      {chat.type === 'final-exam'
+                        ? 'Aprueba con 70% para completar el módulo'
+                        : chat.preview}
+                    </span>
                   </span>
                 </button>
               </li>
@@ -165,16 +331,35 @@ export function LearnChat({ module }) {
         chat={activeChat}
         entries={history[activeChat.id] ?? []}
         askedTitles={askedTitles(activeChat.id)}
-        nextChat={chats[activeIndex + 1]}
+        activeExam={activeExam}
+        isLevelPassed={activeChat.index !== undefined && passedLevels[activeChat.index]}
+        finalExamPassed={finalExamPassed}
+        nextLevel={chats.find((chat) => chat.index === activeChat.index + 1)}
         onSend={send}
         onOpenChat={openChat}
+        onStartExam={() => startExam(activeChat)}
+        onPassExam={markExamPassed}
         onBack={() => setIsChatOpen(false)}
       />
     </div>
   )
 }
 
-function Conversation({ module, chat, entries, askedTitles, nextChat, onSend, onOpenChat, onBack }) {
+function Conversation({
+  module,
+  chat,
+  entries,
+  askedTitles,
+  activeExam,
+  isLevelPassed,
+  finalExamPassed,
+  nextLevel,
+  onSend,
+  onOpenChat,
+  onStartExam,
+  onPassExam,
+  onBack,
+}) {
   const [draft, setDraft] = useState('')
   const [typingId, setTypingId] = useState(null)
   const messagesRef = useRef(null)
@@ -187,11 +372,12 @@ function Conversation({ module, chat, entries, askedTitles, nextChat, onSend, on
   useEffect(() => {
     const list = messagesRef.current
     if (list) list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' })
-  }, [entries.length, typingId])
+  }, [activeExam, entries.length, typingId])
 
   const remaining = chat.items.filter((item) => !askedTitles.has(item.title))
   const filter = normalize(draft)
   const suggestions = filter ? remaining.filter((item) => normalize(item.title).includes(filter)) : remaining
+  const finalExam = chat.id === FINAL_EXAM_ID
 
   const submit = (event) => {
     event.preventDefault()
@@ -226,8 +412,8 @@ function Conversation({ module, chat, entries, askedTitles, nextChat, onSend, on
             <span className="wa-sender wa-sender-juan">Juan de la Cruz</span>
             <p>
               {isComparison
-                ? `¡Hola! Elige un criterio de abajo o escribe tu consulta, y te cuento cómo se comparan ${module.comparison.languages.join(', ')}.`
-                : `¡Hola! Elige un tema de abajo o escribe tu consulta y pulsa enviar. Te respondo con ejemplos en ${module.languages.map((language) => language.label).join(', ')}.`}
+                ? `¡Hola! Elige un criterio de abajo o pregúntame lo que quieras: te cuento cómo se comparan ${module.comparison.languages.join(', ')}.`
+                : `¡Hola! Elige un tema de abajo para ver la lección con ejemplos en ${module.languages.map((language) => language.label).join(', ')}, o escribe cualquier pregunta y te la responde el tutor IA.`}
             </p>
           </div>
         </div>
@@ -247,39 +433,163 @@ function Conversation({ module, chat, entries, askedTitles, nextChat, onSend, on
           }
           return null
         })}
+        {activeExam?.loading && (
+          <div className="wa-exam wa-exam-loading" role="status">
+            <span className="wa-typing" aria-hidden="true"><span /><span /><span /></span>
+            El tutor IA está preparando un examen nuevo para este nivel…
+          </div>
+        )}
+        {activeExam && !activeExam.loading && (
+          <ExamCard
+            key={activeExam.id}
+            exam={activeExam}
+            nextLevel={nextLevel}
+            onPass={onPassExam}
+            onOpenChat={onOpenChat}
+            onRetry={onStartExam}
+          />
+        )}
       </div>
 
       <footer className="wa-composer">
-        <div className="wa-suggestions" aria-label="Sugerencias">
-          {suggestions.map((item) => (
-            <button key={item.title} type="button" className="wa-suggestion" onClick={() => selectSuggestion(item.title)}>
-              {item.title}
-            </button>
-          ))}
-          {remaining.length === 0 && nextChat && (
-            <button type="button" className="wa-suggestion wa-suggestion-next" onClick={() => onOpenChat(nextChat.id)}>
-              Siguiente: {nextChat.name} →
-            </button>
-          )}
-          {remaining.length === 0 && !nextChat && (
-            <span className="wa-suggestion-done">¡Terminaste el módulo de {module.label}!</span>
-          )}
-        </div>
-        <form className="wa-composer-form" onSubmit={submit}>
-          <input
-            ref={inputRef}
-            className="wa-composer-field"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder={isComparison ? 'Elige o escribe un criterio' : 'Elige o escribe un tema'}
-            aria-label="Escribe tu consulta"
-          />
-          <button className="wa-composer-send" type="submit" disabled={!draft.trim() || Boolean(typingId)} aria-label="Enviar">
-            <SendIcon />
-          </button>
-        </form>
+        {activeExam ? (
+          <span className="wa-exam-hint">Responde todas las preguntas y alcanza al menos el 70% para aprobar.</span>
+        ) : (
+          <>
+            <div className="wa-suggestions" aria-label="Sugerencias">
+              {suggestions.map((item) => (
+                <button key={item.title} type="button" className="wa-suggestion" onClick={() => selectSuggestion(item.title)}>
+                  {item.title}
+                </button>
+              ))}
+              {remaining.length === 0 && chat.index !== undefined && !isLevelPassed && (
+                <button type="button" className="wa-suggestion wa-suggestion-exam" onClick={onStartExam}>
+                  Examen del nivel · 70% para aprobar
+                </button>
+              )}
+              {remaining.length === 0 && chat.index !== undefined && isLevelPassed && nextLevel && (
+                <button type="button" className="wa-suggestion wa-suggestion-next" onClick={() => onOpenChat(nextLevel.id)}>
+                  Siguiente nivel: {nextLevel.name} →
+                </button>
+              )}
+              {remaining.length === 0 && chat.index !== undefined && isLevelPassed && !nextLevel && (
+                <button type="button" className="wa-suggestion wa-suggestion-next" onClick={() => onOpenChat(FINAL_EXAM_ID)}>
+                  Ir al examen final →
+                </button>
+              )}
+              {remaining.length === 0 && finalExam && finalExamPassed && (
+                <span className="wa-suggestion-done">¡Completaste el módulo de {module.label}!</span>
+              )}
+            </div>
+            {!finalExam && (
+              <form className="wa-composer-form" onSubmit={submit}>
+                <input
+                  ref={inputRef}
+                  className="wa-composer-field"
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  placeholder={isComparison ? 'Elige un criterio o pregunta lo que quieras' : 'Elige un tema o pregunta lo que quieras'}
+                  aria-label="Escribe tu consulta"
+                />
+                <button className="wa-composer-send" type="submit" disabled={!draft.trim() || Boolean(typingId)} aria-label="Enviar">
+                  <SendIcon />
+                </button>
+              </form>
+            )}
+          </>
+        )}
       </footer>
     </section>
+  )
+}
+
+function ExamCard({ exam, nextLevel, onPass, onOpenChat, onRetry }) {
+  const [answers, setAnswers] = useState({})
+  const [result, setResult] = useState(null)
+  const required = Math.ceil(exam.questions.length * EXAM_PASS_RATE)
+  const nextChatId = exam.kind === 'final' ? null : nextLevel?.id ?? FINAL_EXAM_ID
+  const continueLabel = exam.kind === 'final'
+    ? 'Examen final aprobado'
+    : nextLevel ? `Continuar al ${nextLevel.name}` : 'Ir al examen final'
+
+  const submit = (event) => {
+    event.preventDefault()
+    if (Object.keys(answers).length !== exam.questions.length || result) return
+    const score = exam.questions.reduce((total, question) => (
+      total + (answers[question.id] === question.answer ? 1 : 0)
+    ), 0)
+    const hasPassed = score >= required
+    setResult({ score, hasPassed })
+    if (hasPassed) onPass(exam)
+  }
+
+  return (
+    <form className="wa-exam" onSubmit={submit}>
+      <div className="wa-exam-heading">
+        <strong>{exam.kind === 'final' ? 'Examen final' : 'Examen del nivel'}</strong>
+        <span>
+          {exam.questions.length} preguntas · necesitas {required} aciertos (70%)
+          {exam.source === 'local' && ' · sin conexión con el tutor IA: preguntas de respaldo'}
+        </span>
+      </div>
+      {exam.questions.map((question, index) => (
+        <fieldset className="wa-exam-question" key={question.id} disabled={Boolean(result)}>
+          <legend>
+            {index + 1}. {question.prompt}
+          </legend>
+          {question.material && <p className="wa-exam-material">{question.material}</p>}
+          <div className="wa-exam-options">
+            {question.options.map((option) => (
+              <label className="wa-exam-option" key={option}>
+                <input
+                  type="radio"
+                  name={question.id}
+                  value={option}
+                  checked={answers[question.id] === option}
+                  onChange={() => setAnswers((current) => ({ ...current, [question.id]: option }))}
+                />
+                <span>{option}</span>
+              </label>
+            ))}
+          </div>
+          {result && (
+            <p className={answers[question.id] === question.answer ? 'wa-exam-feedback is-right' : 'wa-exam-feedback is-wrong'}>
+              {answers[question.id] === question.answer ? 'Correcto. ' : `Incorrecto. Respuesta: ${question.answer}. `}
+              {question.explanation}
+            </p>
+          )}
+        </fieldset>
+      ))}
+      {result && (
+        <p className={result.hasPassed ? 'wa-exam-result is-passed' : 'wa-exam-result is-failed'} role="status">
+          {result.hasPassed
+            ? exam.kind === 'final'
+              ? `¡Aprobado! Obtuviste ${result.score} de ${exam.questions.length}. Completaste el módulo.`
+              : `¡Aprobado! Obtuviste ${result.score} de ${exam.questions.length}. Ya puedes continuar con el siguiente nivel.`
+            : `Obtuviste ${result.score} de ${exam.questions.length}. Necesitas ${required} para aprobar. Revisa las explicaciones e inténtalo con un examen nuevo.`}
+        </p>
+      )}
+      <div className="wa-exam-actions">
+        {result?.hasPassed && exam.kind === 'level' && (
+          <button className="wa-exam-submit" type="button" onClick={() => onOpenChat(nextChatId)}>
+            {continueLabel} →
+          </button>
+        )}
+        {result?.hasPassed && exam.kind === 'final' && (
+          <span className="wa-suggestion-done">Módulo completado ✓</span>
+        )}
+        {result?.hasPassed === false && (
+          <button className="wa-exam-submit" type="button" onClick={onRetry}>
+            Intentar con un examen nuevo
+          </button>
+        )}
+        {!result && (
+          <button className="wa-exam-submit" type="submit" disabled={Object.keys(answers).length !== exam.questions.length}>
+            Entregar examen
+          </button>
+        )}
+      </div>
+    </form>
   )
 }
 
@@ -310,6 +620,18 @@ function JuanBubble({ children }) {
 }
 
 function Reply({ entry, chat, module, onOpenChat }) {
+  if (entry.kind === 'ai-pending') return <TypingBubble />
+
+  if (entry.kind === 'ai' || entry.kind === 'ai-error') {
+    return (
+      <div className="wa-bubble wa-bubble-in wa-ai-reply" role={entry.kind === 'ai-error' ? 'alert' : undefined}>
+        <span className="wa-sender wa-sender-juan">{entry.kind === 'ai-error' ? 'Asistente de aprendizaje · error' : 'Tutor IA'}</span>
+        {entry.kind === 'ai' ? <AiContent text={entry.content} /> : <p>{entry.content}</p>}
+        {entry.kind === 'ai-error' && <span className="wa-output-note">Comprueba que el servidor esté activo y que tenga configurada GROQ_API_KEY.</span>}
+      </div>
+    )
+  }
+
   if (entry.kind === 'unknown') {
     return <JuanBubble><p>Aún no tengo una lección sobre eso en este chat. Prueba con alguna de las sugerencias de abajo.</p></JuanBubble>
   }
@@ -388,6 +710,23 @@ function Reply({ entry, chat, module, onOpenChat }) {
       ))}
     </>
   )
+}
+
+// Muestra la respuesta del tutor: bloques ``` como código, `comandos` y **negritas**
+function AiContent({ text }) {
+  return text.split(/```[\w+#-]*\n?([\s\S]*?)(?:```|$)/g).map((part, index) => {
+    if (!part.trim()) return null
+    if (index % 2 === 1) return <pre className="wa-code" key={index}><code>{part.replace(/\n+$/, '')}</code></pre>
+    return (
+      <p key={index}>
+        {part.trim().split(/(`[^`\n]+`|\*\*[^*\n]+\*\*)/g).map((piece, pieceIndex) => {
+          if (/^`[^`\n]+`$/.test(piece)) return <code className="wa-inline-code" key={pieceIndex}>{piece.slice(1, -1)}</code>
+          if (/^\*\*[^*\n]+\*\*$/.test(piece)) return <strong key={pieceIndex}>{piece.slice(2, -2)}</strong>
+          return piece
+        })}
+      </p>
+    )
+  })
 }
 
 // Convierte las direcciones web del texto en enlaces

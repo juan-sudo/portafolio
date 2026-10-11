@@ -32,6 +32,16 @@ const backendLevels = [
       {
         title: "Instrucciones de varias líneas",
         session: true,
+        examCode: {
+          python: "edad = 20\nif edad >= 18:\n    print(\"Mayor de edad\")",
+          php: '$edad = 20;\nif ($edad >= 18) {\n    echo "Mayor de edad";\n}',
+          java: 'int edad = 20;\nif (edad >= 18) {\n    System.out.println("Mayor de edad");\n}',
+        },
+        expectedOutput: {
+          python: "Mayor de edad",
+          php: "Mayor de edad",
+          java: "Mayor de edad",
+        },
         python: ">>> edad = 20\n>>> if edad >= 18:\n...     print(\"Mayor de edad\")\n...\nMayor de edad\n\n# >>> es el indicador principal\n# ... indica que la instrucción continúa;\n#     una línea vacía la termina",
         php: "php > $edad = 20;\nphp > if ($edad >= 18) {\nphp {     echo \"Mayor de edad\";\nphp { }\nMayor de edad\n\n// \"php {\" indica que hay una llave abierta",
         java: "jshell> int edad = 20\nedad ==> 20\n\njshell> if (edad >= 18) {\n   ...>     System.out.println(\"Mayor de edad\");\n   ...> }\nMayor de edad\n\n// \"...>\" indica que la instrucción continúa",
