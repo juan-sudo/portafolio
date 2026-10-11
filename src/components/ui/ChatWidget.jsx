@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { experience, profile, projects, skills } from '../../data/portfolio'
 import { ChatIcon, CloseIcon, SendIcon } from './Icons'
 
-const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL || 'http://localhost:8787/api/chat'
+const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL || 'http://localhost:3000/api/chat'
+const CONVERSATION_KEY = 'chatConversationId'
 
 const WELCOME_MESSAGE = {
   role: 'assistant',
@@ -59,10 +60,12 @@ export function ChatWidget() {
         body: JSON.stringify({
           messages: nextMessages.map(({ role, content }) => ({ role, content })),
           context: PORTFOLIO_CONTEXT,
+          conversationId: localStorage.getItem(CONVERSATION_KEY) || undefined,
         }),
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Error al contactar al chat.')
+      if (data.conversationId) localStorage.setItem(CONVERSATION_KEY, data.conversationId)
       setMessages((current) => [...current, { role: 'assistant', content: data.reply || 'No obtuve respuesta.' }])
     } catch {
       setError('No se pudo enviar el mensaje. Intenta de nuevo en unos segundos.')
