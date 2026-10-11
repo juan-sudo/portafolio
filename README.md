@@ -53,6 +53,18 @@ npm run dev
 
 Configura `GROQ_API_KEY` en `server/.env` con una clave válida de Groq para habilitar el tutor IA. Por defecto usa `openai/gpt-oss-120b`; puedes cambiarlo con `GROQ_MODEL`. El portafolio llama a `http://localhost:8787/api/chat` y el aprendizaje a `http://localhost:8787/api/learn-chat` (tutor) y `http://localhost:8787/api/learn-exam` (exámenes generados por IA según el nivel; si el servidor no responde se usan preguntas locales de respaldo).
 
+El módulo de Tailwind CSS cubre Tailwind 2.2 desde la instalación hasta un proyecto responsive, configuración, JIT y optimización; termina con un examen final generado por IA.
+
+El módulo de Next.js cubre App Router desde la instalación hasta Server Components, datos, mutaciones, seguridad, rendimiento y despliegue; incluye un proyecto full-stack y examen final con IA.
+
+El módulo de JavaScript cubre el lenguaje desde sus fundamentos hasta asincronía, objetos avanzados, módulos, seguridad y rendimiento; incluye un proyecto integrador y examen final con IA.
+
+El módulo de TypeScript cubre el sistema de tipos desde los fundamentos hasta narrowing, genéricos, módulos, configuración estricta e integración con aplicaciones; incluye un proyecto integrador y examen final con IA, basado en la documentación oficial.
+
+El módulo de Git y GitHub cubre control de versiones, ramas, remotos, pull requests, Actions, seguridad y flujos avanzados; incluye un proyecto integrador y examen final con IA basado en la documentación oficial.
+
+El módulo de Docker cubre imágenes, contenedores, Dockerfile, volúmenes, redes, Compose, CI, seguridad y despliegue; incluye un proyecto integrador y examen final con IA basado en la documentación oficial.
+
 Para apuntar el widget de portafolio a otra URL, crea un `.env` en la raíz con:
 
 ```

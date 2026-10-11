@@ -158,6 +158,7 @@ app.post('/api/learn-exam', async (req, res) => {
   }
 
   const { context, avoid } = req.body
+  const interview = req.body.interview === true
   const count = Math.min(Math.max(Number.parseInt(req.body.count, 10) || 5, 1), 10)
   if (typeof context !== 'string' || !context.trim()) {
     return res.status(400).json({ error: 'Se requiere el contenido del nivel.' })
@@ -170,7 +171,9 @@ app.post('/api/learn-exam', async (req, res) => {
   const systemPrompt = [
     'Eres un ingeniero de software senior que redacta exámenes técnicos de opción múltiple para estudiantes de programación.',
     `Genera exactamente ${count} preguntas en español basadas ÚNICAMENTE en el contenido del nivel que te entrega el usuario. La dificultad debe corresponder a ese nivel: no evalúes temas que el estudiante todavía no vio.`,
-    'Varía los tipos de pregunta: predecir el resultado de un fragmento de código, completar el código (marca el espacio con _____), completar una oración con el término técnico correcto, detectar el error de un fragmento, elegir el comando o la sintaxis correcta, y conceptos aplicados. Evita las preguntas de memoria sobre títulos de lecciones. Reparte las preguntas entre los temas y los lenguajes del nivel.',
+    interview
+      ? 'Este es un simulacro de entrevista técnica. Formula preguntas originales como las de una entrevista real: presenta situaciones de diseño o depuración, pide elegir la mejor decisión y evalúa comprensión de trade-offs, ciclo de vida, rendimiento, seguridad y buenas prácticas que aparezcan en el contenido. Evita trivia y definiciones memorizadas. Cada pregunta debe tener una única mejor respuesta defendible.'
+      : 'Varía los tipos de pregunta: predecir el resultado de un fragmento de código, completar el código (marca el espacio con _____), completar una oración con el término técnico correcto, detectar el error de un fragmento, elegir el comando o la sintaxis correcta, y conceptos aplicados. Evita las preguntas de memoria sobre títulos de lecciones. Reparte las preguntas entre los temas y los lenguajes del nivel.',
     'Cada pregunta tiene exactamente 4 alternativas distintas, breves y verosímiles, y una sola correcta sin ambigüedad. Verifica mentalmente cada fragmento de código antes de fijar la respuesta: el resultado debe ser exactamente el que produciría al ejecutarse. Las tres alternativas incorrectas deben ser realmente incorrectas: si dos formas son válidas (por ejemplo, una opción corta y su forma larga), no las pongas juntas. No uses «todas las anteriores» ni «ninguna de las anteriores».',
     'Responde solo con un objeto JSON con esta forma: {"questions":[{"prompt":"enunciado, indicando el lenguaje si aplica","code":"fragmento de código o texto a completar, o cadena vacía","options":["a","b","c","d"],"answerIndex":0,"explanation":"por qué es correcta, en una o dos oraciones"}]}. answerIndex es la posición (0 a 3) de la alternativa correcta. No uses markdown dentro de los textos.',
     previous ? `Este estudiante ya respondió estas preguntas; escribe otras distintas, con otros ejemplos y valores:\n${previous}` : '',

@@ -27,6 +27,7 @@ function buildChats({ levels, comparison }) {
       index,
       avatar: level.level,
       name: `Nivel ${level.level} · ${level.title}`,
+      interview: Boolean(level.interview),
       items: level.topics,
     })),
     {
@@ -119,9 +120,17 @@ export function LearnChat({ module, theme, onToggleTheme }) {
   // Pide el examen al tutor IA con el contenido del nivel; si falla, usa las preguntas locales
   const startExam = (chat) => {
     const isFinal = chat.type === 'final-exam'
-    const topics = isFinal ? module.levels.flatMap((level) => level.topics) : module.levels[chat.index].topics
-    const count = isFinal ? 10 : 5
-    const exam = { id: newEntryId(), kind: isFinal ? 'final' : 'level', levelIndex: chat.index, questions: [], loading: true }
+    const level = isFinal ? null : module.levels[chat.index]
+    const topics = isFinal ? module.levels.flatMap((item) => item.topics) : level.topics
+    const count = isFinal ? 10 : level.examCount ?? 5
+    const exam = {
+      id: newEntryId(),
+      kind: isFinal ? 'final' : 'level',
+      levelIndex: chat.index,
+      interview: Boolean(chat.interview),
+      questions: [],
+      loading: true,
+    }
     const seenKey = progressKey(module.id, 'exam-seen', isFinal ? 'final' : chat.index)
     const finish = (questions, source) => setActiveExam((current) => (
       current?.id === exam.id ? { ...exam, loading: false, source, questions } : current
@@ -138,7 +147,12 @@ export function LearnChat({ module, theme, onToggleTheme }) {
     fetch(LEARN_EXAM_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ context: buildExamContext(module, chat, topics), count, avoid: seen }),
+      body: JSON.stringify({
+        context: buildExamContext(module, chat, topics),
+        count,
+        avoid: seen,
+        interview: Boolean(chat.interview),
+      }),
       signal: AbortSignal.timeout(EXAM_TIMEOUT_MS),
     })
       .then(async (response) => {
@@ -436,7 +450,9 @@ function Conversation({
         {activeExam?.loading && (
           <div className="wa-exam wa-exam-loading" role="status">
             <span className="wa-typing" aria-hidden="true"><span /><span /><span /></span>
-            El tutor IA está preparando un examen nuevo para este nivel…
+            {activeExam.interview
+              ? 'La IA está preparando preguntas nuevas para tu entrevista de Angular…'
+              : 'El tutor IA está preparando un examen nuevo para este nivel…'}
           </div>
         )}
         {activeExam && !activeExam.loading && (
@@ -464,7 +480,7 @@ function Conversation({
               ))}
               {remaining.length === 0 && chat.index !== undefined && !isLevelPassed && (
                 <button type="button" className="wa-suggestion wa-suggestion-exam" onClick={onStartExam}>
-                  Examen del nivel · 70% para aprobar
+                  {chat.interview ? 'Simulacro de entrevista Angular · 70% para aprobar' : 'Examen del nivel · 70% para aprobar'}
                 </button>
               )}
               {remaining.length === 0 && chat.index !== undefined && isLevelPassed && nextLevel && (
@@ -510,6 +526,8 @@ function ExamCard({ exam, nextLevel, onPass, onOpenChat, onRetry }) {
   const nextChatId = exam.kind === 'final' ? null : nextLevel?.id ?? FINAL_EXAM_ID
   const continueLabel = exam.kind === 'final'
     ? 'Examen final aprobado'
+    : exam.interview
+      ? 'Ir al examen final del módulo'
     : nextLevel ? `Continuar al ${nextLevel.name}` : 'Ir al examen final'
 
   const submit = (event) => {
@@ -526,7 +544,11 @@ function ExamCard({ exam, nextLevel, onPass, onOpenChat, onRetry }) {
   return (
     <form className="wa-exam" onSubmit={submit}>
       <div className="wa-exam-heading">
-        <strong>{exam.kind === 'final' ? 'Examen final' : 'Examen del nivel'}</strong>
+        <strong>
+          {exam.interview
+            ? 'Simulacro de entrevista Angular'
+            : exam.kind === 'final' ? 'Examen final' : 'Examen del nivel'}
+        </strong>
         <span>
           {exam.questions.length} preguntas · necesitas {required} aciertos (70%)
           {exam.source === 'local' && ' · sin conexión con el tutor IA: preguntas de respaldo'}
@@ -565,6 +587,8 @@ function ExamCard({ exam, nextLevel, onPass, onOpenChat, onRetry }) {
           {result.hasPassed
             ? exam.kind === 'final'
               ? `¡Aprobado! Obtuviste ${result.score} de ${exam.questions.length}. Completaste el módulo.`
+              : exam.interview
+                ? `¡Entrevista aprobada! Obtuviste ${result.score} de ${exam.questions.length}.`
               : `¡Aprobado! Obtuviste ${result.score} de ${exam.questions.length}. Ya puedes continuar con el siguiente nivel.`
             : `Obtuviste ${result.score} de ${exam.questions.length}. Necesitas ${required} para aprobar. Revisa las explicaciones e inténtalo con un examen nuevo.`}
         </p>

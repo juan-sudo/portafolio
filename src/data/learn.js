@@ -2,6 +2,12 @@ import { angularModule } from './angular'
 import { djangoModule } from './django'
 import { laravelModule } from './laravel'
 import { reactModule } from './react'
+import { tailwindModule } from './tailwind'
+import { nextModule } from './nextjs'
+import { javascriptModule } from './javascript'
+import { typescriptModule } from './typescript'
+import { gitGithubModule } from './gitGithub'
+import { dockerModule } from './docker'
 import { additionalExercises } from './exerciseBank'
 import { springBootLevels, springBootComparison } from './springBoot'
 
@@ -2626,6 +2632,12 @@ export const learnModules = [
   laravelModule,
   angularModule,
   reactModule,
+  tailwindModule,
+  nextModule,
+  javascriptModule,
+  typescriptModule,
+  gitGithubModule,
+  dockerModule,
 ]
 
 export const LEARN_ROUTE = '#/aprende'

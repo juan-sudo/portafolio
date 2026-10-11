@@ -282,6 +282,62 @@ const angularComparison = {
   ],
 }
 
+const angularInterviewLevel = {
+  title: 'Entrevista técnica Angular',
+  interview: true,
+  examCount: 10,
+  topics: [
+    text(
+      'Diseño de componentes standalone',
+      `En Angular moderno, los componentes standalone declaran en imports las directivas, pipes y componentes que usan sus plantillas. bootstrapApplication inicia la aplicación sin un NgModule raíz; los proveedores globales se configuran en app.config.ts. Antes de Angular 19, standalone debía declararse explícitamente; en Angular 19 pasó a ser el valor predeterminado.`,
+    ),
+    text(
+      'Comunicación entre componentes',
+      `Un componente padre entrega datos al hijo con inputs y recibe notificaciones con outputs. Angular moderno ofrece las funciones input() y output(), además de los decoradores @Input y @Output. Para datos derivados de un input signal se puede usar computed(); un servicio compartido es más apropiado para estado compartido que no pertenece a una única relación padre-hijo.`,
+    ),
+    text(
+      'Signals y estado derivado',
+      `signal() crea un valor reactivo que se lee invocándolo y se actualiza con set() o update(). computed() deriva un valor y se recalcula según las señales leídas. effect() está pensado para sincronizar señales con efectos externos; no conviene usarlo para copiar estado derivado, porque computed() expresa esa relación directamente.`,
+    ),
+    text(
+      'Detección de cambios y OnPush',
+      `ChangeDetectionStrategy.OnPush reduce comprobaciones innecesarias. Angular comprueba el componente, entre otros casos, cuando cambia un input, ocurre un evento en su vista, una señal leída por la plantilla cambia o se marca explícitamente para comprobación. Mutar un objeto conservando la misma referencia puede no comunicar un cambio de input; se prefieren actualizaciones inmutables.`,
+    ),
+    text(
+      'Observables y RxJS en interfaces',
+      `Un Observable puede emitir cero, uno o muchos valores a lo largo del tiempo; una Promise resuelve una sola vez. async pipe se suscribe y cancela la suscripción con la vista. Para componer flujos, switchMap cambia a la operación más reciente y cancela la suscripción anterior; es útil en búsquedas para evitar mostrar respuestas obsoletas.`,
+    ),
+    text(
+      'Inyección de dependencias y alcance',
+      `providedIn: 'root' registra normalmente un servicio compartido en el inyector raíz. Declarar un proveedor en un componente crea una instancia dentro de su ámbito, disponible para ese componente y sus descendientes, y puede producir instancias separadas. El alcance debe elegirse según quién comparte el estado y durante cuánto tiempo debe vivir.`,
+    ),
+    text(
+      'Enrutamiento, carga diferida y guards',
+      `Angular Router asocia rutas con componentes o con carga diferida mediante loadComponent o loadChildren. Un guard puede permitir o impedir navegación, pero no sustituye la autorización del servidor: el backend debe validar permisos en cada operación protegida. La carga diferida separa código para reducir lo descargado al inicio.`,
+    ),
+    text(
+      'Formularios reactivos y validación',
+      `Los formularios reactivos modelan controles y validadores explícitamente en TypeScript; son útiles cuando la validación es dinámica o compleja. Un validador devuelve null si el valor es válido o un objeto de errores si no lo es. Las reglas del cliente mejoran la experiencia, pero las entradas también deben validarse en el servidor.`,
+    ),
+    text(
+      'Peticiones HTTP, errores e interceptores',
+      `HttpClient devuelve Observables y permite componer la petición con operadores RxJS. Los interceptores pueden aplicar políticas transversales como encabezados o registro; los errores se manejan explícitamente, por ejemplo con catchError. No se deben ocultar errores de autorización o red convirtiéndolos en respuestas que aparenten éxito.`,
+    ),
+    text(
+      'Ciclo de vida y limpieza',
+      `ngOnInit se ejecuta una vez después de inicializar los inputs; ngOnChanges responde a cambios de inputs y ngOnDestroy se ejecuta antes de destruir el componente. Las suscripciones manuales y temporizadores deben cancelarse al dejar de necesitarlos. async pipe o takeUntilDestroyed ayudan a vincular la limpieza al ciclo de vida.`,
+    ),
+    text(
+      'Rendimiento de listas y plantillas',
+      `En una lista con @for, track debe identificar de forma estable cada elemento, por ejemplo por id; así Angular puede reutilizar nodos cuando la colección cambia. En versiones anteriores se utilizaba trackBy con *ngFor. Evita cálculos costosos repetidos en plantillas y usa carga diferida para rutas o recursos grandes cuando sea apropiado.`,
+    ),
+    text(
+      'Seguridad, SSR y pruebas',
+      `Angular escapa valores interpolados en la plantilla para reducir riesgos de XSS; no se debe confiar contenido con bypassSecurityTrust... sin una fuente realmente confiable. En SSR, el servidor genera HTML inicial y la hidratación conecta esa vista en el navegador. Las pruebas deben comprobar comportamiento observable y aislar dependencias, no depender solo de detalles internos.`,
+    ),
+  ],
+}
+
 // Primero la documentación oficial (con TypeScript tras los primeros pasos) y luego los temas y proyectos del curso
 const angularLevels = [
   angularBasicLevels[0],
@@ -292,6 +348,7 @@ const angularLevels = [
   ...angularAdvancedLevels,
   ...angularCourseModernLevels,
   ...angularCourseProjectLevels,
+  angularInterviewLevel,
 ].map((level, index) => ({ ...level, level: index }))
 
 export const angularModule = {
@@ -299,7 +356,7 @@ export const angularModule = {
   label: 'Angular',
   subtitle: 'Framework web de TypeScript · Angular 17 a 20',
   title: 'Construye aplicaciones web con TypeScript y Angular.',
-  description: 'Aprende Angular desde TypeScript y el primer componente hasta enrutamiento, formularios, HTTP, Signals, pruebas, renderizado en servidor y despliegue. Los niveles 0 a 18 siguen la documentación oficial de Angular 17 (v17.angular.io); los niveles 19 a 28 siguen el temario del curso «Angular: De cero a experto» de Fernando Herrera (Angular 19+), con sus proyectos GifsApp, CountryApp, MapsApp y TesloShop. Los ejemplos muestran código de Angular como referencia: no se ejecutan en el navegador.',
+  description: 'Aprende Angular desde TypeScript y el primer componente hasta enrutamiento, formularios, HTTP, Signals, pruebas, renderizado en servidor y despliegue. Los niveles iniciales siguen la documentación oficial de Angular 17 (v17.angular.io); los siguientes siguen el temario del curso «Angular: De cero a experto» de Fernando Herrera (Angular 19+), con sus proyectos GifsApp, CountryApp, MapsApp y TesloShop. La ruta termina con un nivel de preparación para entrevistas cuyo examen genera preguntas nuevas con IA. Los ejemplos muestran código de Angular como referencia: no se ejecutan en el navegador.',
   languages: [{ key: 'angular', label: 'Angular' }],
   levels: angularLevels,
   outputLabel: 'Resultado de ejemplo',
