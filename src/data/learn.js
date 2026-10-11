@@ -1,5 +1,7 @@
+import { angularModule } from './angular'
 import { djangoModule } from './django'
 import { laravelModule } from './laravel'
+import { reactModule } from './react'
 import { additionalExercises } from './exerciseBank'
 import { springBootLevels, springBootComparison } from './springBoot'
 
@@ -2622,6 +2624,8 @@ export const learnModules = [
   },
   djangoModule,
   laravelModule,
+  angularModule,
+  reactModule,
 ]
 
 export const LEARN_ROUTE = '#/aprende'

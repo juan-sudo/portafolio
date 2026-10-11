@@ -286,7 +286,14 @@ h1, h2, h3 { margin-top: 0; font-family: Manrope, sans-serif; letter-spacing: -.
 
 @media (max-width: 760px) {
   .learn-page { padding: 0; }
-  .wa { grid-template-columns: 1fr; height: 100dvh; border: none; border-radius: 0; box-shadow: none; }
+  .wa { grid-template-columns: minmax(0, 1fr); height: 100dvh; border: none; border-radius: 0; box-shadow: none; }
+  .wa-sidebar { min-width: 0; }
+  .wa-sidebar-header { padding: 1rem 1rem .6rem; }
+  .wa-heading { align-items: flex-start; }
+  .wa-heading h1 { min-width: 0; font-size: clamp(1.05rem, 5vw, 1.25rem); line-height: 1.25; }
+  .wa-chips { display: flex; overflow-x: auto; overflow-y: hidden; }
+  .wa-chip { min-width: max-content; padding: .45rem .8rem; text-align: center; white-space: nowrap; }
+  .wa-chat-item-preview { display: -webkit-box; overflow: hidden; white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
   .wa-conversation { display: none; }
   .wa-chat-open .wa-sidebar { display: none; }
   .wa-chat-open .wa-conversation { display: flex; }
