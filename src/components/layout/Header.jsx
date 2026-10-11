@@ -8,6 +8,7 @@ export function Header({ theme, onToggleTheme }) {
 
   useEffect(() => {
     const sections = navigation
+      .filter((item) => !item.href.startsWith('#/'))
       .map((item) => document.querySelector(item.href))
       .filter(Boolean)
 
