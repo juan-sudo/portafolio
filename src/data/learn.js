@@ -10,6 +10,8 @@ import { gitGithubModule } from './gitGithub'
 import { dockerModule } from './docker'
 import { additionalExercises } from './exerciseBank'
 import { springBootLevels, springBootComparison } from './springBoot'
+import { backendCompareLevel, backendComparison, backendLanguages } from './backendCompare'
+import { withExtraLanguages } from './backendExtra'
 
 const backendLevels = [
   {
@@ -1937,7 +1939,7 @@ const backendLevels = [
         exercise: true,
         code: true,
         prompt: "Lee un número entero y determina si es par o impar. Considera que un número es par cuando su residuo al dividirlo entre 2 es cero.",
-        note: "Prueba con 8 y 13. Cambia el número en Datos de entrada y ejecuta. Python y PHP se ejecutan; Java queda como solución de referencia.",
+        note: "Prueba con 8 y 13. Cambia el número en Datos de entrada y ejecuta. Python y PHP se ejecutan; los demás lenguajes quedan como solución de referencia.",
         python: "numero = int(input('Número: '))\nif numero % 2 == 0:\n    print(f'{numero} es par')\nelse:\n    print(f'{numero} es impar')",
         php: "$numero = (int) readline('Número: ');\necho $numero % 2 === 0 ? \"$numero es par\" : \"$numero es impar\";",
         java: "Scanner entrada = new Scanner(System.in);\nSystem.out.print(\"Número: \");\nint numero = entrada.nextInt();\nSystem.out.println(numero % 2 == 0 ? numero + \" es par\" : numero + \" es impar\");",
@@ -1950,7 +1952,7 @@ const backendLevels = [
         exercise: true,
         code: true,
         prompt: "Lee un número entero e indica si cumple a la vez estas dos condiciones: ser divisible entre 3 y ser par.",
-        note: "Prueba con 18, 12 y 9 para comprobar distintos casos. Python y PHP se ejecutan; Java queda como solución de referencia.",
+        note: "Prueba con 18, 12 y 9 para comprobar distintos casos. Python y PHP se ejecutan; los demás lenguajes quedan como solución de referencia.",
         python: "numero = int(input('Número: '))\nif numero % 3 == 0 and numero % 2 == 0:\n    print(f'{numero} cumple ambas condiciones')\nelse:\n    print(f'{numero} no cumple ambas condiciones')",
         php: "$numero = (int) readline('Número: ');\necho $numero % 3 === 0 && $numero % 2 === 0\n    ? \"$numero cumple ambas condiciones\"\n    : \"$numero no cumple ambas condiciones\";",
         java: "Scanner entrada = new Scanner(System.in);\nSystem.out.print(\"Número: \");\nint numero = entrada.nextInt();\nboolean cumple = numero % 3 == 0 && numero % 2 == 0;\nSystem.out.println(cumple ? numero + \" cumple ambas condiciones\" : numero + \" no cumple ambas condiciones\");",
@@ -1963,7 +1965,7 @@ const backendLevels = [
         exercise: true,
         code: true,
         prompt: "Lee dos enteros y determina si el primero divide exactamente al segundo. Ten en cuenta que no se puede dividir entre cero.",
-        note: "Prueba con 4 y 20; luego prueba divisor 0. Python y PHP se ejecutan; Java queda como solución de referencia.",
+        note: "Prueba con 4 y 20; luego prueba divisor 0. Python y PHP se ejecutan; los demás lenguajes quedan como solución de referencia.",
         python: "divisor = int(input('Divisor: '))\nnumero = int(input('Número: '))\nif divisor == 0:\n    print('El divisor no puede ser cero')\nelif numero % divisor == 0:\n    print(f'{divisor} divide a {numero}')\nelse:\n    print(f'{divisor} no divide a {numero}')",
         php: "$divisor = (int) readline('Divisor: ');\n$numero = (int) readline('Número: ');\nif ($divisor === 0) {\n    echo 'El divisor no puede ser cero';\n} elseif ($numero % $divisor === 0) {\n    echo \"$divisor divide a $numero\";\n} else {\n    echo \"$divisor no divide a $numero\";\n}",
         java: "Scanner entrada = new Scanner(System.in);\nSystem.out.print(\"Divisor: \");\nint divisor = entrada.nextInt();\nSystem.out.print(\"Número: \");\nint numero = entrada.nextInt();\nif (divisor == 0) System.out.println(\"El divisor no puede ser cero\");\nelse System.out.println(numero % divisor == 0 ? divisor + \" divide a \" + numero : divisor + \" no divide a \" + numero);",
@@ -1976,7 +1978,7 @@ const backendLevels = [
         exercise: true,
         code: true,
         prompt: "Lee un año y muestra si tiene 366 días. En el calendario gregoriano, los años divisibles entre 4 son bisiestos, salvo los divisibles entre 100; estos sí lo son cuando también son divisibles entre 400.",
-        note: "Prueba con 2024, 1900 y 2000. Cambia el año en Datos de entrada y ejecuta. Python y PHP se ejecutan; Java queda como solución de referencia.",
+        note: "Prueba con 2024, 1900 y 2000. Cambia el año en Datos de entrada y ejecuta. Python y PHP se ejecutan; los demás lenguajes quedan como solución de referencia.",
         python: "anio = int(input('Año: '))\nes_bisiesto = (anio % 4 == 0 and anio % 100 != 0) or anio % 400 == 0\nif es_bisiesto:\n    print(f'{anio} es bisiesto')\nelse:\n    print(f'{anio} no es bisiesto')",
         php: "$anio = (int) readline('Año: ');\n$esBisiesto = ($anio % 4 === 0 && $anio % 100 !== 0) || $anio % 400 === 0;\necho $esBisiesto ? \"$anio es bisiesto\" : \"$anio no es bisiesto\";",
         java: "Scanner entrada = new Scanner(System.in);\nSystem.out.print(\"Año: \");\nint anio = entrada.nextInt();\nboolean esBisiesto = (anio % 4 == 0 && anio % 100 != 0) || anio % 400 == 0;\nSystem.out.println(esBisiesto ? anio + \" es bisiesto\" : anio + \" no es bisiesto\");",
@@ -1993,7 +1995,7 @@ const backendLevels = [
         exercise: true,
         code: true,
         prompt: "Lee dos enteros no negativos y calcula su máximo común divisor con el algoritmo de Euclides: reemplaza el par por el divisor y el resto hasta que el resto sea cero.",
-        note: "Prueba con 48 y 18; el resultado esperado es 6. Python y PHP se ejecutan; Java queda como solución de referencia.",
+        note: "Prueba con 48 y 18; el resultado esperado es 6. Python y PHP se ejecutan; los demás lenguajes quedan como solución de referencia.",
         python: "a = int(input('Primer número: '))\nb = int(input('Segundo número: '))\nwhile b != 0:\n    a, b = b, a % b\nprint(f'MCD: {a}')",
         php: "$a = (int) readline('Primer número: ');\n$b = (int) readline('Segundo número: ');\nwhile ($b !== 0) {\n    [$a, $b] = [$b, $a % $b];\n}\necho \"MCD: $a\";",
         java: "Scanner entrada = new Scanner(System.in);\nSystem.out.print(\"Primer número: \");\nint a = entrada.nextInt();\nSystem.out.print(\"Segundo número: \");\nint b = entrada.nextInt();\nwhile (b != 0) { int resto = a % b; a = b; b = resto; }\nSystem.out.println(\"MCD: \" + a);",
@@ -2006,7 +2008,7 @@ const backendLevels = [
         exercise: true,
         code: true,
         prompt: "Lee un número n y muestra los números del 1 al n, uno por línea. Pero si el número es múltiplo de 3 escribe Fizz, si es múltiplo de 5 escribe Buzz, y si es múltiplo de ambos escribe FizzBuzz.",
-        note: "Prueba con 15 y con 30. Python y PHP se ejecutan; Java queda como solución de referencia.",
+        note: "Prueba con 15 y con 30. Python y PHP se ejecutan; los demás lenguajes quedan como solución de referencia.",
         python: "n = int(input('Hasta: '))\nfor i in range(1, n + 1):\n    if i % 15 == 0:\n        print('FizzBuzz')\n    elif i % 3 == 0:\n        print('Fizz')\n    elif i % 5 == 0:\n        print('Buzz')\n    else:\n        print(i)",
         php: "$n = (int) readline('Hasta: ');\nfor ($i = 1; $i <= $n; $i++) {\n    if ($i % 15 === 0) {\n        echo \"FizzBuzz\\n\";\n    } elseif ($i % 3 === 0) {\n        echo \"Fizz\\n\";\n    } elseif ($i % 5 === 0) {\n        echo \"Buzz\\n\";\n    } else {\n        echo $i, \"\\n\";\n    }\n}",
         java: "import java.util.Scanner;\n\nScanner entrada = new Scanner(System.in);\nSystem.out.print(\"Hasta: \");\nint n = entrada.nextInt();\nfor (int i = 1; i <= n; i++) {\n    if (i % 15 == 0) System.out.println(\"FizzBuzz\");\n    else if (i % 3 == 0) System.out.println(\"Fizz\");\n    else if (i % 5 == 0) System.out.println(\"Buzz\");\n    else System.out.println(i);\n}",
@@ -2023,7 +2025,7 @@ const backendLevels = [
         exercise: true,
         code: true,
         prompt: "Lee varias notas separadas por comas, guárdalas en una lista y muestra cuántas hay, el promedio con un decimal, la nota más alta y la más baja.",
-        note: "Prueba con 18,15,17 y con 11,20,14,9. Python y PHP se ejecutan; Java queda como solución de referencia.",
+        note: "Prueba con 18,15,17 y con 11,20,14,9. Python y PHP se ejecutan; los demás lenguajes quedan como solución de referencia.",
         python: "texto = input('Notas: ')\nnotas = [int(nota) for nota in texto.split(',')]\nprint(f'Cantidad: {len(notas)}')\nprint(f'Promedio: {sum(notas) / len(notas):.1f}')\nprint(f'Más alta: {max(notas)}')\nprint(f'Más baja: {min(notas)}')",
         php: "$texto = readline('Notas: ');\n$notas = array_map('intval', explode(',', $texto));\necho 'Cantidad: ', count($notas), \"\\n\";\necho 'Promedio: ', number_format(array_sum($notas) / count($notas), 1), \"\\n\";\necho 'Más alta: ', max($notas), \"\\n\";\necho 'Más baja: ', min($notas), \"\\n\";",
         java: "import java.util.Scanner;\n\nScanner entrada = new Scanner(System.in);\nSystem.out.print(\"Notas: \");\nList<Integer> notas = Arrays.stream(entrada.nextLine().split(\",\"))\n    .map(nota -> Integer.parseInt(nota.trim()))\n    .toList();\nSystem.out.println(\"Cantidad: \" + notas.size());\nSystem.out.printf(Locale.US, \"Promedio: %.1f%n\", notas.stream().mapToInt(Integer::intValue).average().orElse(0));\nSystem.out.println(\"Más alta: \" + Collections.max(notas));\nSystem.out.println(\"Más baja: \" + Collections.min(notas));",
@@ -2040,7 +2042,7 @@ const backendLevels = [
         exercise: true,
         code: true,
         prompt: "Escribe una función que convierta un texto en edad. Debe lanzar un error si el texto no es un número entero o si la edad está fuera del rango de 0 a 120. Atrapa el error y muestra un mensaje claro.",
-        note: "Prueba con 25, con abc y con 130. Python y PHP se ejecutan; Java queda como solución de referencia.",
+        note: "Prueba con 25, con abc y con 130. Python y PHP se ejecutan; los demás lenguajes quedan como solución de referencia.",
         python: "def leer_edad(texto):\n    try:\n        edad = int(texto)\n    except ValueError:\n        raise ValueError(f'«{texto}» no es un número entero')\n    if not 0 <= edad <= 120:\n        raise ValueError(f'{edad} está fuera del rango de 0 a 120')\n    return edad\n\ntexto = input('Edad: ')\ntry:\n    edad = leer_edad(texto)\n    print(f'Edad válida: {edad} años')\nexcept ValueError as error:\n    print(f'Error: {error}')",
         php: "function leerEdad(string $texto): int {\n    if (filter_var($texto, FILTER_VALIDATE_INT) === false) {\n        throw new InvalidArgumentException(\"«{$texto}» no es un número entero\");\n    }\n    $edad = (int) $texto;\n    if ($edad < 0 || $edad > 120) {\n        throw new InvalidArgumentException(\"$edad está fuera del rango de 0 a 120\");\n    }\n    return $edad;\n}\n\n$texto = readline('Edad: ');\ntry {\n    $edad = leerEdad($texto);\n    echo \"Edad válida: $edad años\\n\";\n} catch (InvalidArgumentException $error) {\n    echo 'Error: ', $error->getMessage(), \"\\n\";\n}",
         java: "import java.util.Scanner;\n\nstatic int leerEdad(String texto) {\n    int edad;\n    try {\n        edad = Integer.parseInt(texto);\n    } catch (NumberFormatException e) {\n        throw new IllegalArgumentException(\"«\" + texto + \"» no es un número entero\");\n    }\n    if (edad < 0 || edad > 120) {\n        throw new IllegalArgumentException(edad + \" está fuera del rango de 0 a 120\");\n    }\n    return edad;\n}\n\nScanner entrada = new Scanner(System.in);\nSystem.out.print(\"Edad: \");\nString texto = entrada.nextLine();\ntry {\n    int edad = leerEdad(texto);\n    System.out.println(\"Edad válida: \" + edad + \" años\");\n} catch (IllegalArgumentException error) {\n    System.out.println(\"Error: \" + error.getMessage());\n}",
@@ -2057,7 +2059,7 @@ const backendLevels = [
         exercise: true,
         code: true,
         prompt: "Crea una clase ListaDeTareas con métodos para agregar una tarea, marcarla como completada por su número y mostrar la lista con [x] o [ ] delante. Al final, indica cuántas quedan pendientes. Lee el número de la tarea que se completa.",
-        note: "Prueba completando la tarea 1, 2 o 3. Python y PHP se ejecutan; Java queda como solución de referencia.",
+        note: "Prueba completando la tarea 1, 2 o 3. Python y PHP se ejecutan; los demás lenguajes quedan como solución de referencia.",
         python: "class ListaDeTareas:\n    def __init__(self):\n        self.tareas = []\n\n    def agregar(self, texto):\n        self.tareas.append({'texto': texto, 'hecha': False})\n\n    def completar(self, numero):\n        self.tareas[numero - 1]['hecha'] = True\n\n    def mostrar(self):\n        for tarea in self.tareas:\n            marca = 'x' if tarea['hecha'] else ' '\n            print(f\"[{marca}] {tarea['texto']}\")\n        pendientes = sum(1 for tarea in self.tareas if not tarea['hecha'])\n        print(f'Pendientes: {pendientes}')\n\nlista = ListaDeTareas()\nlista.agregar('Estudiar Python')\nlista.agregar('Practicar PHP')\nlista.agregar('Repasar Java')\nlista.completar(int(input('Tarea completada: ')))\nlista.mostrar()",
         php: "class ListaDeTareas {\n    private array $tareas = [];\n\n    public function agregar(string $texto): void {\n        $this->tareas[] = ['texto' => $texto, 'hecha' => false];\n    }\n\n    public function completar(int $numero): void {\n        $this->tareas[$numero - 1]['hecha'] = true;\n    }\n\n    public function mostrar(): void {\n        foreach ($this->tareas as $tarea) {\n            $marca = $tarea['hecha'] ? 'x' : ' ';\n            echo \"[$marca] {$tarea['texto']}\\n\";\n        }\n        $pendientes = count(array_filter($this->tareas, fn($tarea) => !$tarea['hecha']));\n        echo \"Pendientes: $pendientes\\n\";\n    }\n}\n\n$lista = new ListaDeTareas();\n$lista->agregar('Estudiar Python');\n$lista->agregar('Practicar PHP');\n$lista->agregar('Repasar Java');\n$lista->completar((int) readline('Tarea completada: '));\n$lista->mostrar();",
         java: "import java.util.Scanner;\n\nclass Tarea {\n    String texto;\n    boolean hecha;\n\n    Tarea(String texto) {\n        this.texto = texto;\n    }\n}\n\nclass ListaDeTareas {\n    List<Tarea> tareas = new ArrayList<>();\n\n    void agregar(String texto) {\n        tareas.add(new Tarea(texto));\n    }\n\n    void completar(int numero) {\n        tareas.get(numero - 1).hecha = true;\n    }\n\n    void mostrar() {\n        for (Tarea tarea : tareas) {\n            System.out.println(\"[\" + (tarea.hecha ? \"x\" : \" \") + \"] \" + tarea.texto);\n        }\n        long pendientes = tareas.stream().filter(tarea -> !tarea.hecha).count();\n        System.out.println(\"Pendientes: \" + pendientes);\n    }\n}\n\nListaDeTareas lista = new ListaDeTareas();\nlista.agregar(\"Estudiar Python\");\nlista.agregar(\"Practicar PHP\");\nlista.agregar(\"Repasar Java\");\nScanner entrada = new Scanner(System.in);\nSystem.out.print(\"Tarea completada: \");\nlista.completar(entrada.nextInt());\nlista.mostrar();",
@@ -2078,52 +2080,6 @@ const backendLevels = [
     ],
   },
 ]
-
-const backendComparison = {
-  languages: ['PHP', 'Python', 'Java'],
-  rows: [
-    {
-      label: 'Tipo de lenguaje',
-      values: [
-        'Script para web, interpretado',
-        'Interpretado, multipropósito',
-        'Compilado a bytecode (JVM), orientado a objetos',
-      ],
-    },
-    {
-      label: 'Tipado',
-      values: ['Dinámico', 'Dinámico', 'Estático'],
-    },
-    {
-      label: 'Curva de aprendizaje',
-      values: ['Baja', 'Baja', 'Media'],
-    },
-    {
-      label: 'Rendimiento típico',
-      values: ['Medio', 'Medio', 'Alto'],
-    },
-    {
-      label: 'Frameworks frecuentes',
-      values: ['Laravel, WordPress', 'Django, Flask, FastAPI', 'Spring Boot, Quarkus'],
-    },
-    {
-      label: 'Usado en un proyecto real de Juan',
-      values: [
-        'Sistema de Recaudación Municipal (SRM), Municipalidad de Lucanas Puquio',
-        'SISGAT: cobranza municipal con Django y PostgreSQL',
-        'Módulo de Kardex con microservicios en Spring Boot',
-      ],
-    },
-    {
-      label: 'Cuándo elegirlo',
-      values: [
-        'Sitios web tradicionales, CMS y hosting compartido',
-        'Prototipos rápidos, APIs, automatización, ciencia de datos e IA',
-        'Sistemas grandes, alta concurrencia, apps Android, equipos numerosos',
-      ],
-    },
-  ],
-}
 
 const frontendLevels = [
   {
@@ -2580,15 +2536,12 @@ export const learnModules = [
     id: 'backend',
     label: 'Backend',
     title: 'La lógica que corre en el servidor.',
-    description: 'Desde los primeros conceptos de programación hasta tus primeros proyectos, comparando Python, PHP y Java.',
-    languages: [
-      { key: 'python', label: 'Python' },
-      { key: 'php', label: 'PHP' },
-      { key: 'java', label: 'Java' },
-    ],
-    levels: backendLevels,
+    description: 'Desde los primeros conceptos de programación hasta tus primeros proyectos, con cada lección en los 9 lenguajes de backend más usados: Python, PHP, Java, JavaScript (Node.js), Go, C#, Ruby, Rust y Kotlin. El último nivel los compara lado a lado: en qué se parecen y en qué se diferencian.',
+    subtitle: 'Backend: Python, PHP, Java, Node.js, Go, C#, Ruby, Rust y Kotlin',
+    languages: backendLanguages,
+    levels: [...withExtraLanguages(backendLevels), backendCompareLevel],
     outputLabel: 'Salida',
-    comparison: { title: 'PHP, Python o Java: ¿cuál conviene usar?', ...backendComparison },
+    comparison: { title: 'Lenguajes de backend: ¿cuál conviene usar?', ...backendComparison },
   },
   {
     id: 'frontend',

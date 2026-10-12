@@ -15,6 +15,11 @@ const LEARN_EXAM_API_URL = import.meta.env.VITE_LEARN_EXAM_API_URL || LEARN_CHAT
 const EXAM_TIMEOUT_MS = 45_000
 const EXAM_CONTEXT_LIMIT = 8_000
 const EXAM_SEEN_LIMIT = 20
+const EXAM_LESSON_CODE_LIMIT = 1_050
+const EXAM_LESSON_OUTPUT_LIMIT = 360
+// El servidor del tutor solo lee esta parte del contexto y de cada mensaje, y rechaza peticiones grandes
+const TUTOR_CONTEXT_LIMIT = 6_000
+const TUTOR_LESSON_CODE_LIMIT = 1_650
 const COMPOSER_MAX_ROWS = 8
 
 // Acciones rápidas bajo la última respuesta del tutor: pistas, retos y explicación propia (Feynman)
@@ -71,14 +76,25 @@ function buildExamContext(module, chat, topics) {
   const lessons = []
   let size = 0
   for (const topic of shuffle(topics)) {
-    const parts = module.languages.flatMap(({ key, label }) => {
+    const contents = module.languages.flatMap(({ key, label }) => {
       const content = topic.examCode?.[key] ?? topic[key]
-      if (typeof content !== 'string' || !content.trim()) return []
-      const output = topic.expectedOutput?.[key] ?? topic.output?.[key]
-      const result = typeof output === 'string' ? `\nResultado: ${output.slice(0, 120)}` : ''
-      return [`${label}:\n${content.slice(0, 350)}${result}`]
+      return typeof content === 'string' && content.trim() ? [{ key, label, content }] : []
     })
-    const lesson = [`Tema: ${topic.title}`, topic.prompt, ...parts].filter(Boolean).join('\n')
+    // El espacio de cada lección se reparte entre los lenguajes que trae
+    const codeLimit = Math.floor(EXAM_LESSON_CODE_LIMIT / Math.max(3, contents.length))
+    const outputLimit = Math.floor(EXAM_LESSON_OUTPUT_LIMIT / Math.max(3, contents.length))
+    const parts = contents.map(({ key, label, content }) => {
+      const output = topic.expectedOutput?.[key] ?? topic.output?.[key]
+      const result = typeof output === 'string' ? `\nResultado: ${output.slice(0, outputLimit)}` : ''
+      return `${label}:\n${content.slice(0, codeLimit)}${result}`
+    })
+    const lesson = [
+      `Tema: ${topic.title}`,
+      topic.prompt,
+      topic.common && `En qué se parecen: ${topic.common}`,
+      topic.differences && `En qué se diferencian:\n${topic.differences}`,
+      ...parts,
+    ].filter(Boolean).join('\n')
     if (size + lesson.length > EXAM_CONTEXT_LIMIT) continue
     lessons.push(lesson)
     size += lesson.length
@@ -230,9 +246,11 @@ export function LearnChat({ module, theme, onToggleTheme }) {
         // El tutor necesita saber qué código vio el estudiante para proponer un reto parecido
         if (entry.kind === 'answer') {
           const lesson = activeChat.items.find((candidate) => candidate.title === entry.title)
-          const code = module.languages
-            .map(({ key, label }) => (typeof lesson?.[key] === 'string' ? `${label}:\n${lesson[key].slice(0, 550)}` : null))
-            .filter(Boolean)
+          const shown = module.languages.filter(({ key }) => typeof lesson?.[key] === 'string')
+          // El servidor recorta cada mensaje: el espacio se reparte entre los lenguajes de la lección
+          const codeLimit = Math.floor(TUTOR_LESSON_CODE_LIMIT / Math.max(3, shown.length))
+          const code = shown
+            .map(({ key, label }) => `${label}:\n${lesson[key].slice(0, codeLimit)}`)
             .join('\n\n')
           return [{ role: 'assistant', content: `Lección mostrada al estudiante: «${entry.title}».\n\n${code}` }]
         }
@@ -244,14 +262,20 @@ export function LearnChat({ module, theme, onToggleTheme }) {
         `Módulo: ${module.label}.`,
         `Chat actual: ${activeChat.name}.`,
         `Lenguajes: ${module.languages.map((language) => language.label).join(', ')}.`,
-        `Temas disponibles:\n${activeChat.items.map((lesson) => {
+        `Temas de este chat: ${activeChat.items.map((lesson) => lesson.title).join(' · ')}.`,
+        `Contenido de las lecciones:\n${activeChat.items.map((lesson) => {
           const explanation = module.languages
             .map(({ key, label }) => lesson[key] ? `${label}: ${lesson[key]}` : null)
             .filter(Boolean)
             .join('\n')
-          return `${lesson.title}${explanation ? `\n${explanation}` : ''}`
+          return [
+            lesson.title,
+            explanation,
+            lesson.common && `En qué se parecen: ${lesson.common}`,
+            lesson.differences && `En qué se diferencian:\n${lesson.differences}`,
+          ].filter(Boolean).join('\n')
         }).join('\n\n')}`,
-      ].join('\n\n')
+      ].join('\n\n').slice(0, TUTOR_CONTEXT_LIMIT)
 
       fetch(LEARN_CHAT_API_URL, {
         method: 'POST',
@@ -413,6 +437,8 @@ function Conversation({
   const inputRef = useRef(null)
   const timeoutRef = useRef(null)
   const isComparison = chat.id === COMPARISON_ID
+  // Cada nivel anuncia solo los lenguajes que tienen ejemplos en sus lecciones
+  const chatLanguages = module.languages.filter(({ key }) => chat.items.some((item) => typeof item[key] === 'string'))
 
   useEffect(() => () => clearTimeout(timeoutRef.current), [])
 
@@ -476,7 +502,7 @@ function Conversation({
             <p>
               {isComparison
                 ? `¡Hola! Elige un criterio de abajo o pregúntame lo que quieras: te cuento cómo se comparan ${module.comparison.languages.join(', ')}.`
-                : `¡Hola! Elige un tema de abajo para ver la lección con ejemplos en ${module.languages.map((language) => language.label).join(', ')}, o escribe tu pregunta o pega tu código: el tutor IA te guía con pistas y retos para que lo resuelvas tú, en lugar de darte la respuesta hecha.`}
+                : `¡Hola! Elige un tema de abajo para ver la lección con ejemplos en ${chatLanguages.map((language) => language.label).join(', ')}, o escribe tu pregunta o pega tu código: el tutor IA te guía con pistas y retos para que lo resuelvas tú, en lugar de darte la respuesta hecha.`}
             </p>
           </div>
         </div>
@@ -922,19 +948,28 @@ function Reply({ entry, chat, module, onOpenChat }) {
 
   if (chat.id === COMPARISON_ID) {
     const { languages } = module.comparison
+    // Un valor vacío significa que el criterio no aplica a ese lenguaje
+    const rows = item.values
+      .map((value, index) => ({ language: languages[index], value }))
+      .filter((row) => row.value)
     return (
-      <JuanBubble copyText={item.values.map((value, index) => `${languages[index]}: ${value}`).join('\n')}>
+      <JuanBubble copyText={rows.map((row) => `${row.language}: ${row.value}`).join('\n')}>
         <dl className="wa-compare">
-          {item.values.map((value, index) => (
-            <div key={languages[index]}>
-              <dt>{languages[index]}</dt>
-              <dd>{value}</dd>
+          {rows.map((row) => (
+            <div key={row.language}>
+              <dt>{row.language}</dt>
+              <dd>{row.value}</dd>
             </div>
           ))}
         </dl>
       </JuanBubble>
     )
   }
+
+  // Un lenguaje solo aparece si la lección lo incluye; conserva su posición para el color del remitente
+  const languages = module.languages
+    .map((language, index) => ({ ...language, index }))
+    .filter(({ key }) => typeof item[key] === 'string')
 
   return (
     <>
@@ -947,8 +982,8 @@ function Reply({ entry, chat, module, onOpenChat }) {
           </div>
         </JuanBubble>
       )}
-      {module.languages.map(({ key, label }, index) => (
-        <div className="wa-reveal" style={{ animationDelay: `${index * 0.25}s` }} key={key}>
+      {languages.map(({ key, label, index }, position) => (
+        <div className="wa-reveal" style={{ animationDelay: `${position * 0.25}s` }} key={key}>
       {item.code ? (
         <CodeMessage
           language={key}
@@ -987,6 +1022,26 @@ function Reply({ entry, chat, module, onOpenChat }) {
       )}
         </div>
       ))}
+      {(item.common || item.differences) && (
+        <div className="wa-reveal" style={{ animationDelay: `${languages.length * 0.25}s` }}>
+          <JuanBubble copyText={[item.common, item.differences].filter(Boolean).join('\n\n')}>
+            <dl className="wa-compare wa-compare-lesson">
+              {item.common && (
+                <div>
+                  <dt>En qué se parecen</dt>
+                  <dd>{item.common}</dd>
+                </div>
+              )}
+              {item.differences && (
+                <div>
+                  <dt>En qué se diferencian</dt>
+                  <dd>{item.differences}</dd>
+                </div>
+              )}
+            </dl>
+          </JuanBubble>
+        </div>
+      )}
     </>
   )
 }

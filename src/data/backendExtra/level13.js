@@ -1,0 +1,51 @@
+// Nivel 13 · Edición interactiva e historial
+export default {
+  'Usar el intérprete interactivo': {
+    javascript: 'Inicia Node.js escribiendo node en la terminal. El prompt > indica que puedes escribir una instrucción y ver su resultado al momento; usa un archivo .js cuando quieras guardar un programa. La consola del navegador (F12) funciona igual.',
+    go: 'Go no trae consola interactiva. Para probar una idea se usa el Go Playground (go.dev/play) o un archivo pequeño que se ejecuta con go run. Como compila en menos de un segundo, el ciclo de escribir y probar sigue siendo rápido.',
+    csharp: '.NET no incluye una consola interactiva oficial. Se puede instalar csharprepl como herramienta, y editores como Visual Studio y Rider traen una ventana interactiva de C#.',
+    ruby: 'Inicia la consola escribiendo irb en la terminal. El prompt indica que puedes escribir una instrucción y ver su resultado al momento, precedido de =>. Usa un archivo .rb cuando quieras guardar un programa.',
+    rust: 'Rust no trae consola interactiva. Para probar una idea se usa el Rust Playground (play.rust-lang.org) o un proyecto pequeño con cargo run. Existe evcxr, una consola hecha por la comunidad.',
+    kotlin: 'El compilador de terminal incluye un modo interactivo (kotlinc), pero lo habitual es probar ideas en el Kotlin Playground (play.kotlinlang.org), en un archivo de borrador de IntelliJ IDEA o en un Kotlin Notebook.',
+  },
+  'Editar la línea actual': {
+    javascript: 'En la consola de Node.js, las flechas mueven el cursor para corregir la línea antes de ejecutarla. Ctrl+A va al inicio y Ctrl+E al final. El comando .editor abre un modo para escribir varias líneas con calma.',
+    go: 'Al no haber consola, el código se edita en el editor. La extensión de Go para VS Code y el editor GoLand ejecutan un archivo o una sola prueba con un clic, y dan formato al guardar.',
+    csharp: 'csharprepl ofrece edición de varias líneas, colores y los atajos habituales de la terminal. En Visual Studio, la ventana interactiva permite corregir y volver a enviar bloques completos.',
+    ruby: 'En irb, las flechas mueven el cursor para corregir la línea antes de ejecutarla. Las versiones recientes colorean el código y permiten editar instrucciones de varias líneas, subiendo y bajando entre ellas.',
+    rust: 'Al no haber consola, el código se edita en el editor. La extensión rust-analyzer muestra los errores mientras escribes y añade un botón Run sobre la función main y sobre cada prueba.',
+    kotlin: 'En IntelliJ IDEA el código se edita con todas las ayudas del editor, también en los archivos de borrador y en los cuadernos, y se ejecuta con un clic junto a la línea.',
+  },
+  'Completar nombres con Tab': {
+    javascript: 'En la consola de Node.js, pulsa Tab para completar nombres de variables y propiedades; dos veces muestra todas las opciones. Además, mientras escribes aparece en gris una vista previa del resultado.',
+    go: 'El autocompletado lo da el editor a través de gopls, el servidor de lenguaje oficial. Como Go conoce los tipos al compilar, las sugerencias son exactas e incluyen la documentación de cada función.',
+    csharp: 'csharprepl completa con Tab y muestra la documentación de cada miembro. En los editores, IntelliSense sugiere métodos y propiedades según el tipo exacto de cada valor.',
+    ruby: 'En irb, pulsa Tab para ver los métodos disponibles de un objeto; al seleccionar uno se muestra su documentación al lado.',
+    rust: 'El autocompletado lo da el editor a través de rust-analyzer. Conoce el tipo de cada valor, así que sugiere solo los métodos que realmente existen y muestra su documentación.',
+    kotlin: 'IntelliJ IDEA completa nombres con Tab o Enter mientras escribes y con Ctrl+Espacio a petición. Conoce el tipo de cada valor y sugiere también funciones de extensión.',
+  },
+  'Consultar y conservar el historial': {
+    javascript: 'Usa la flecha arriba para recuperar una instrucción anterior y Ctrl+R para buscar en el historial. Node.js lo guarda entre sesiones en el archivo .node_repl_history de tu carpeta de usuario.',
+    go: 'No hay historial de consola. El historial de lo que probaste es el de la terminal (flecha arriba para repetir go run) y, sobre todo, el de Git: conviene guardar los experimentos útiles como pruebas.',
+    csharp: 'csharprepl recupera instrucciones anteriores con la flecha arriba y conserva el historial entre sesiones. También permite buscar en él con Ctrl+R.',
+    ruby: 'Usa la flecha arriba para recuperar una instrucción anterior y Ctrl+R para buscar. irb guarda el historial entre sesiones en el archivo .irb_history de tu carpeta de usuario.',
+    rust: 'No hay historial de consola. El historial de lo que probaste es el de la terminal (flecha arriba para repetir cargo run) y el de Git: conviene guardar los experimentos útiles como pruebas.',
+    kotlin: 'Los archivos de borrador y los cuadernos de IntelliJ IDEA se guardan solos, así que sirven como historial de lo que probaste. El editor conserva además un historial local de cada archivo.',
+  },
+  'Probar consolas interactivas alternativas': {
+    javascript: 'La consola del navegador permite inspeccionar objetos de forma visual. Deno y Bun, otros entornos de JavaScript, traen sus propias consolas, y RunJS o Quokka muestran el resultado junto a cada línea.',
+    go: 'gore es una consola interactiva hecha por la comunidad, y yaegi es un intérprete de Go. Para compartir ejemplos, lo más usado sigue siendo el Go Playground, que genera un enlace.',
+    csharp: 'dotnet-script ejecuta archivos .csx sin crear un proyecto, y los cuadernos Polyglot Notebooks de VS Code mezclan texto con celdas de C# ejecutables. LINQPad es muy popular para probar consultas.',
+    ruby: 'Pry añade exploración de objetos, resaltado y la posibilidad de detener un programa para inspeccionarlo con binding.pry. En un proyecto Rails, rails console abre irb con toda la aplicación cargada.',
+    rust: 'evcxr funciona como consola y también como núcleo de Jupyter, para escribir cuadernos con Rust. Para compartir ejemplos, lo más usado es el Rust Playground, que genera un enlace.',
+    kotlin: 'Kotlin Notebook mezcla texto, celdas de código ejecutables y gráficos dentro de IntelliJ IDEA. También existe un núcleo de Kotlin para Jupyter.',
+  },
+  'Para leer más': {
+    javascript: 'La consola de Node.js: https://nodejs.org/api/repl.html',
+    go: 'Go Playground: https://go.dev/play/\nEditores y herramientas para Go: https://go.dev/doc/editors',
+    csharp: 'csharprepl: https://github.com/waf/CSharpRepl\nPolyglot Notebooks: https://github.com/dotnet/interactive',
+    ruby: 'Documentación de irb: https://docs.ruby-lang.org/en/master/IRB.html\nPry: https://pry.github.io/',
+    rust: 'Rust Playground: https://play.rust-lang.org/\nrust-analyzer: https://rust-analyzer.github.io/\nevcxr: https://github.com/evcxr/evcxr',
+    kotlin: 'Kotlin Playground: https://play.kotlinlang.org/\nKotlin Notebook: https://kotlinlang.org/docs/kotlin-notebook-overview.html',
+  },
+}

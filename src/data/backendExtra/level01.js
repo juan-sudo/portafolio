@@ -1,0 +1,53 @@
+// Nivel 1 · Fundamentos
+export default {
+  '¿Qué es la programación?': {
+    javascript: 'Escribir instrucciones que Node.js ejecuta en el servidor, con el mismo lenguaje que usa el navegador.',
+    go: 'Escribir instrucciones sencillas y explícitas que se compilan a un único programa ejecutable, rápido y fácil de desplegar.',
+    csharp: 'Escribir instrucciones organizadas en clases y tipos, que se compilan y corren sobre la plataforma .NET.',
+    ruby: 'Escribir instrucciones en una sintaxis pensada para leerse casi como una frase en inglés y para que programar sea agradable.',
+    rust: 'Escribir instrucciones que el compilador revisa con mucho rigor antes de ejecutar nada, para evitar errores de memoria.',
+    kotlin: 'Escribir instrucciones concisas que se compilan a bytecode y corren en la JVM, igual que Java pero con menos código.',
+  },
+  'Algoritmos y pensamiento lógico': {
+    javascript: 'Mismo proceso lógico; además conviene pensar qué pasos tardan (leer un archivo, consultar una API), porque Node.js no se queda esperando.',
+    go: 'Mismo proceso lógico. Go tiene pocas formas de hacer cada cosa, así que el algoritmo casi se traduce línea por línea.',
+    csharp: 'Mismo proceso lógico, pensando en tipos y clases desde el inicio, igual que en Java.',
+    ruby: 'Mismo proceso lógico. Muchos pasos habituales (recorrer, filtrar, ordenar) ya existen como métodos de las colecciones.',
+    rust: 'Mismo proceso lógico, pero además hay que decidir quién es dueño de cada dato y si se puede modificar.',
+    kotlin: 'Mismo proceso lógico, con tipos como en Java pero sin tener que escribirlos siempre: el compilador los deduce.',
+  },
+  'Tu primer programa (Hola, mundo)': {
+    javascript: 'console.log("Hola, mundo")',
+    go: 'package main\n\nimport "fmt"\n\nfunc main() {\n    fmt.Println("Hola, mundo")\n}',
+    csharp: 'Console.WriteLine("Hola, mundo");',
+    ruby: 'puts "Hola, mundo"',
+    rust: 'fn main() {\n    println!("Hola, mundo");\n}',
+    kotlin: 'fun main() {\n    println("Hola, mundo")\n}',
+  },
+  'Variables y tipos de datos': {
+    javascript: 'const nombre = "Juan"\nconst edad = 25\nconst altura = 1.75\nconsole.log(nombre, edad, altura)',
+    go: 'nombre := "Juan"\nedad := 25\naltura := 1.75\nfmt.Println(nombre, edad, altura)',
+    csharp: 'string nombre = "Juan";\nint edad = 25;\ndouble altura = 1.75;\nConsole.WriteLine($"{nombre} {edad} {altura}");',
+    ruby: 'nombre = "Juan"\nedad = 25\naltura = 1.75\nputs "#{nombre} #{edad} #{altura}"',
+    rust: 'let nombre = "Juan";\nlet edad = 25;\nlet altura = 1.75;\nprintln!("{nombre} {edad} {altura}");',
+    kotlin: 'val nombre = "Juan"\nval edad = 25\nval altura = 1.75\nprintln("$nombre $edad $altura")',
+  },
+  'Entrada y salida de datos': {
+    jsFixed: true,
+    javascript: 'import { createInterface } from "node:readline/promises"\n\nconst consola = createInterface({ input: process.stdin, output: process.stdout })\nconst nombre = await consola.question("Tu nombre: ")\nconsole.log("Hola,", nombre)\nconsola.close()',
+    go: 'lector := bufio.NewReader(os.Stdin)\nfmt.Print("Tu nombre: ")\nnombre, _ := lector.ReadString(\'\\n\')\nfmt.Println("Hola,", strings.TrimSpace(nombre))',
+    csharp: 'Console.Write("Tu nombre: ");\nstring nombre = Console.ReadLine();\nConsole.WriteLine("Hola, " + nombre);',
+    ruby: 'print "Tu nombre: "\nnombre = gets.chomp\nputs "Hola, #{nombre}"',
+    rust: 'print!("Tu nombre: ");\nio::stdout().flush().unwrap();\nlet mut nombre = String::new();\nio::stdin().read_line(&mut nombre).unwrap();\nprintln!("Hola, {}", nombre.trim());',
+    kotlin: 'print("Tu nombre: ")\nval nombre = readln()\nprintln("Hola, $nombre")',
+  },
+  'Operadores básicos': {
+    javascript: 'const suma = 5 + 3\nconst esIgual = (5 === 3)\nconst resto = 10 % 3\nconsole.log(suma, esIgual, resto)',
+    go: 'suma := 5 + 3\nesIgual := (5 == 3)\nresto := 10 % 3\nfmt.Println(suma, esIgual, resto)',
+    csharp: 'int suma = 5 + 3;\nbool esIgual = (5 == 3);\nint resto = 10 % 3;\nConsole.WriteLine($"{suma} {esIgual} {resto}");',
+    ruby: 'suma = 5 + 3\nes_igual = (5 == 3)\nresto = 10 % 3\nputs "#{suma} #{es_igual} #{resto}"',
+    rust: 'let suma = 5 + 3;\nlet es_igual = 5 == 3;\nlet resto = 10 % 3;\nprintln!("{suma} {es_igual} {resto}");',
+    kotlin: 'val suma = 5 + 3\nval esIgual = (5 == 3)\nval resto = 10 % 3\nprintln("$suma $esIgual $resto")',
+    output: { csharp: '8 False 1' },
+  },
+}

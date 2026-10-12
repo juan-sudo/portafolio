@@ -1,0 +1,51 @@
+// Nivel 14 · Apéndice: modo interactivo y configuración
+export default {
+  'Usar el nuevo modo interactivo de Python': {
+    javascript: 'La consola de Node.js tiene comandos propios que empiezan con un punto: .help muestra la ayuda, .editor permite escribir varias líneas, .load carga un archivo y .exit sale. La variable _ guarda el último resultado.',
+    go: 'Go no tiene modo interactivo. Su equivalente para explorar es el comando go doc, que muestra la documentación de cualquier paquete o función desde la terminal: por ejemplo, go doc strings.Split.',
+    csharp: 'csharprepl colorea el código, acepta instrucciones de varias líneas y deja cargar paquetes NuGet con #r "nuget: Nombre". Escribe help para ver los comandos y exit para salir.',
+    ruby: 'Las versiones recientes de irb colorean el código, sangran solas las instrucciones de varias líneas y muestran documentación al completar. El comando help lista sus comandos, _ guarda el último resultado y exit sale.',
+    rust: 'Rust no tiene modo interactivo. Su equivalente para explorar es cargo doc --open, que genera y abre en el navegador la documentación del proyecto y de todas sus dependencias.',
+    kotlin: 'La consola kotlinc acepta comandos que empiezan con dos puntos: :help muestra la ayuda, :load carga un archivo y :quit sale. Para trabajar con comodidad se recomiendan los cuadernos de Kotlin.',
+  },
+  'Entender los errores e interrumpir una instrucción': {
+    javascript: 'En la consola, un error muestra su mensaje y devuelve el prompt. Al ejecutar un archivo, un error no atrapado detiene Node.js con un código distinto de cero. Ctrl+C interrumpe lo que esté en curso; pulsado dos veces, sale de la consola.',
+    go: 'Los errores de compilación indican archivo, línea y columna, y el programa no llega a ejecutarse. Si falla al correr (un panic), Go muestra la pila de llamadas y termina con código 2. Ctrl+C detiene un programa en ejecución.',
+    csharp: 'Los errores de compilación llevan un código (como CS0103) que se puede buscar en la documentación. Una excepción no atrapada muestra la traza y termina el programa con un código distinto de cero. Ctrl+C lo detiene.',
+    ruby: 'En irb, un error muestra su mensaje y devuelve el prompt. Al ejecutar un archivo, una excepción no atrapada muestra la traza y termina con un código distinto de cero. Ctrl+C interrumpe la operación y produce la excepción Interrupt.',
+    rust: 'El compilador explica cada error con detalle, señala el punto exacto y a menudo propone la corrección; rustc --explain E0425 amplía la explicación. Un panic al ejecutar termina con código 101. Ctrl+C detiene el programa.',
+    kotlin: 'Los errores de compilación indican archivo, línea y columna. Una excepción no atrapada muestra la traza (igual que en Java) y termina el programa con un código distinto de cero. Ctrl+C lo detiene.',
+  },
+  'Ejecutar un script como programa': {
+    javascript: '# Ejecutar desde una terminal\nnode saludo.js\n\n# En Unix, un shebang puede indicar el intérprete\n#!/usr/bin/env node\n\n# Los scripts del proyecto se declaran en package.json\n# y se lanzan con npm run\nnpm run iniciar',
+    go: '# Ejecutar sin dejar un archivo compilado\ngo run saludo.go\n\n# Generar un ejecutable que funciona solo\ngo build -o saludo\n./saludo\n\n# Instalarlo en tu sistema para usarlo desde cualquier carpeta\ngo install',
+    csharp: '# Ejecutar el proyecto de la carpeta actual\ndotnet run\n\n# Generar un ejecutable que no necesita tener .NET instalado\ndotnet publish -c Release --self-contained\n\n# Desde .NET 10, ejecutar un archivo suelto\ndotnet run saludo.cs',
+    ruby: '# Ejecutar desde una terminal\nruby saludo.rb\n\n# En Unix, un shebang puede indicar el intérprete\n#!/usr/bin/env ruby\n\n# Y luego se marca como ejecutable\nchmod +x saludo.rb\n./saludo.rb',
+    rust: '# Compilar y ejecutar en un paso\ncargo run\n\n# Generar el ejecutable optimizado\ncargo build --release\n./target/release/saludo\n\n# Instalarlo en tu sistema para usarlo desde cualquier carpeta\ncargo install --path .',
+    kotlin: '# Ejecutar el proyecto con Gradle\n./gradlew run\n\n# Un archivo .main.kts es un script que se ejecuta directamente\nkotlin saludo.main.kts\n\n# En Unix, un shebang puede indicar el intérprete\n#!/usr/bin/env kotlin',
+  },
+  'Configurar un archivo de inicio interactivo': {
+    javascript: '# NODE_REPL_HISTORY cambia dónde se guarda el historial\nexport NODE_REPL_HISTORY="$HOME/.historial_node"\n\n# NODE_OPTIONS aplica opciones a todos los programas\nexport NODE_OPTIONS="--enable-source-maps"',
+    go: '# Go se configura con go env, no con un archivo de inicio\ngo env\n\n# Cambiar una opción de forma permanente\ngo env -w GOPROXY=https://proxy.golang.org,direct\n\n# Ver dónde se guarda esa configuración\ngo env GOENV',
+    csharp: '# csharprepl admite un archivo de configuración\n# con las opciones que usas siempre\ncsharprepl --configure\n\n# Variables de entorno de .NET\nexport DOTNET_CLI_TELEMETRY_OPTOUT=1',
+    ruby: '# irb ejecuta el archivo .irbrc de tu carpeta de usuario\n# al iniciar cada sesión\n\n# ~/.irbrc\nIRB.conf[:SAVE_HISTORY] = 1000\nrequire "json"',
+    rust: '# Cargo lee su configuración de ~/.cargo/config.toml\n\n# ~/.cargo/config.toml\n[alias]\nr = "run"\nt = "test"\n\n# Con eso, «cargo r» equivale a «cargo run»',
+    kotlin: '# Gradle lee las opciones de gradle.properties,\n# en el proyecto o en ~/.gradle\n\n# gradle.properties\norg.gradle.jvmargs=-Xmx2g\nkotlin.code.style=official',
+  },
+  'Personalizar la instalación con sitecustomize': {
+    javascript: 'El archivo .npmrc (en el proyecto o en tu carpeta de usuario) configura npm: registro de paquetes, credenciales y opciones por defecto. Para proyectos concretos es mejor dejar la configuración en package.json.',
+    go: 'Las variables GOPATH, GOPROXY y GOPRIVATE controlan dónde se guardan y de dónde se descargan los módulos. Se consultan con go env y rara vez hace falta cambiarlas fuera de entornos de empresa.',
+    csharp: 'El archivo NuGet.Config define de qué fuentes se descargan los paquetes, y Directory.Build.props aplica opciones comunes a todos los proyectos de una carpeta. Ambos pueden guardarse en el repositorio.',
+    ruby: 'El archivo .gemrc configura el comando gem para tu usuario, y la variable RUBYOPT añade opciones a todos los programas de Ruby. Para un proyecto concreto es mejor usar el Gemfile.',
+    rust: 'rustup gestiona las versiones instaladas del compilador: rustup update las actualiza y rustup default elige cuál se usa. Un archivo rust-toolchain.toml dentro del proyecto fija la suya.',
+    kotlin: 'El archivo ~/.gradle/init.gradle.kts aplica configuración a todos los proyectos de tu usuario, por ejemplo un repositorio interno. Para un proyecto concreto se usa su propio settings.gradle.kts.',
+  },
+  'Para leer más': {
+    javascript: 'Opciones de línea de comandos de Node.js: https://nodejs.org/api/cli.html\nConfiguración de npm: https://docs.npmjs.com/cli/configuring-npm/npmrc',
+    go: 'El comando go: https://pkg.go.dev/cmd/go',
+    csharp: 'La herramienta dotnet: https://learn.microsoft.com/es-es/dotnet/core/tools/',
+    ruby: 'Configuración de irb: https://docs.ruby-lang.org/en/master/IRB.html\nOpciones del comando ruby: https://docs.ruby-lang.org/en/master/ruby/options_md.html',
+    rust: 'Configuración de Cargo: https://doc.rust-lang.org/cargo/reference/config.html\nrustup: https://rust-lang.github.io/rustup/',
+    kotlin: 'Compilador de línea de comandos: https://kotlinlang.org/docs/command-line.html\nScripts de Kotlin: https://kotlinlang.org/docs/custom-script-deps-tutorial.html',
+  },
+}
