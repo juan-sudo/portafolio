@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { LEARN_ROUTE, learnModules } from '../../data/learn'
 import { buildExamQuestions, shuffle } from '../../lib/examQuestions'
-import { canRun } from '../../lib/runners'
-import { MoonIcon, SendIcon, SunIcon } from '../ui/Icons'
-import { CodeMessage } from './CodeMessage'
+import { canRun, loadingMessage, runCode } from '../../lib/runners'
+import { MoonIcon, PlayIcon, SendIcon, SunIcon } from '../ui/Icons'
+import { CopyButton } from '../ui/CopyButton'
+import { CodeMessage, RunResult } from './CodeMessage'
 
 const COMPARISON_ID = 'vs'
 const FINAL_EXAM_ID = 'examen-final'
@@ -14,6 +15,15 @@ const LEARN_EXAM_API_URL = import.meta.env.VITE_LEARN_EXAM_API_URL || LEARN_CHAT
 const EXAM_TIMEOUT_MS = 45_000
 const EXAM_CONTEXT_LIMIT = 8_000
 const EXAM_SEEN_LIMIT = 20
+const COMPOSER_MAX_ROWS = 8
+
+// Acciones rápidas bajo la última respuesta del tutor: pistas, retos y explicación propia (Feynman)
+const TUTOR_ACTIONS = [
+  { label: 'Dame una pista', text: 'Dame una pista, sin darme la solución.' },
+  { label: 'Ponme un reto', text: 'Ponme un reto corto sobre esto para practicar.' },
+  { label: 'Lo explico yo', text: 'Quiero explicártelo con mis palabras para comprobar que lo entendí.' },
+]
+const CONVERT_LANGUAGES = ['Python', 'JavaScript', 'Java']
 
 const normalize = (text) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 
@@ -196,8 +206,9 @@ export function LearnChat({ module, theme, onToggleTheme }) {
   }
 
   // Devuelve el id de la respuesta para que la conversación muestre "escribiendo…" antes de ella
-  const send = (text) => {
-    const item = findItem(text, activeChat.items)
+  // forceAi salta la búsqueda de lecciones: lo usan las acciones rápidas del tutor
+  const send = (text, { forceAi = false } = {}) => {
+    const item = forceAi ? null : findItem(text, activeChat.items)
     const question = { id: newEntryId(), kind: 'question', text: item ? item.title : text }
     const currentHistory = history[activeChat.id] ?? []
     let reply
@@ -205,7 +216,7 @@ export function LearnChat({ module, theme, onToggleTheme }) {
     if (item) {
       reply = { id: newEntryId(), kind: 'answer', title: item.title }
     } else {
-      const other = chats.find((chat) => chat.id !== activeChat.id && findItem(text, chat.items))
+      const other = forceAi ? null : chats.find((chat) => chat.id !== activeChat.id && findItem(text, chat.items))
       reply = other
         ? { id: newEntryId(), kind: 'redirect', chatId: other.id, chatName: other.name, title: findItem(text, other.items).title }
         : { id: newEntryId(), kind: 'ai-pending' }
@@ -216,6 +227,15 @@ export function LearnChat({ module, theme, onToggleTheme }) {
       const messages = currentHistory.flatMap((entry) => {
         if (entry.kind === 'question') return [{ role: 'user', content: entry.text }]
         if (entry.kind === 'ai') return [{ role: 'assistant', content: entry.content }]
+        // El tutor necesita saber qué código vio el estudiante para proponer un reto parecido
+        if (entry.kind === 'answer') {
+          const lesson = activeChat.items.find((candidate) => candidate.title === entry.title)
+          const code = module.languages
+            .map(({ key, label }) => (typeof lesson?.[key] === 'string' ? `${label}:\n${lesson[key].slice(0, 550)}` : null))
+            .filter(Boolean)
+            .join('\n\n')
+          return [{ role: 'assistant', content: `Lección mostrada al estudiante: «${entry.title}».\n\n${code}` }]
+        }
         return []
       })
       messages.push({ role: 'user', content: text })
@@ -239,17 +259,29 @@ export function LearnChat({ module, theme, onToggleTheme }) {
         body: JSON.stringify({ messages, context: lessonContext }),
       })
         .then(async (response) => {
-          const data = await response.json()
-          if (!response.ok) throw new Error(data.error || 'El asistente no pudo responder.')
-          if (typeof data.reply !== 'string' || !data.reply.trim()) {
-            throw new Error('El asistente devolvió una respuesta vacía.')
+          if (!response.ok) {
+            const data = await response.json().catch(() => ({}))
+            throw new Error(data.error || 'El asistente no pudo responder.')
           }
-          setHistory((current) => ({
+          // El servidor envía el texto a medida que el modelo lo escribe
+          const reader = response.body.getReader()
+          const decoder = new TextDecoder()
+          const update = (content, streaming) => setHistory((current) => ({
             ...current,
             [activeChat.id]: current[activeChat.id].map((entry) => (
-              entry.id === reply.id ? { id: reply.id, kind: 'ai', content: data.reply } : entry
+              entry.id === reply.id ? { id: reply.id, kind: 'ai', content, streaming } : entry
             )),
           }))
+          let content = ''
+          for (;;) {
+            const { done, value } = await reader.read()
+            if (done) break
+            content += decoder.decode(value, { stream: true })
+            if (content.trim()) update(content, true)
+          }
+          content += decoder.decode()
+          if (!content.trim()) throw new Error('El asistente devolvió una respuesta vacía.')
+          update(content, false)
         })
         .catch((error) => {
           console.error('No se pudo obtener una respuesta del tutor IA:', error)
@@ -376,6 +408,7 @@ function Conversation({
 }) {
   const [draft, setDraft] = useState('')
   const [typingId, setTypingId] = useState(null)
+  const [practiceId, setPracticeId] = useState(null)
   const messagesRef = useRef(null)
   const inputRef = useRef(null)
   const timeoutRef = useRef(null)
@@ -383,24 +416,40 @@ function Conversation({
 
   useEffect(() => () => clearTimeout(timeoutRef.current), [])
 
+  const lastContent = entries[entries.length - 1]?.content
+
   useEffect(() => {
     const list = messagesRef.current
     if (list) list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' })
-  }, [activeExam, entries.length, typingId])
+  }, [activeExam, entries.length, typingId, lastContent])
 
   const remaining = chat.items.filter((item) => !askedTitles.has(item.title))
   const filter = normalize(draft)
   const suggestions = filter ? remaining.filter((item) => normalize(item.title).includes(filter)) : remaining
   const finalExam = chat.id === FINAL_EXAM_ID
 
-  const submit = (event) => {
-    event.preventDefault()
-    if (!draft.trim() || typingId) return
-    const replyId = onSend(draft)
-    setDraft('')
+  const lastEntry = entries[entries.length - 1]
+  const isWaiting = Boolean(typingId) || lastEntry?.kind === 'ai-pending' || Boolean(lastEntry?.streaming)
+
+  const ask = (text, options) => {
+    if (!text.trim() || isWaiting) return
+    // Conserva la sangría de la primera línea del código pegado
+    const replyId = onSend(text.replace(/^\s*\n|\s+$/g, ''), options)
     setTypingId(replyId)
     clearTimeout(timeoutRef.current)
     timeoutRef.current = setTimeout(() => setTypingId(null), TYPING_DELAY_MS)
+  }
+
+  const submit = (event) => {
+    event.preventDefault()
+    if (!draft.trim() || isWaiting) return
+    ask(draft)
+    setDraft('')
+  }
+
+  // Enter envía; Shift + Enter agrega una línea para poder escribir o pegar código
+  const onDraftKeyDown = (event) => {
+    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) submit(event)
   }
 
   const selectSuggestion = (title) => {
@@ -427,7 +476,7 @@ function Conversation({
             <p>
               {isComparison
                 ? `¡Hola! Elige un criterio de abajo o pregúntame lo que quieras: te cuento cómo se comparan ${module.comparison.languages.join(', ')}.`
-                : `¡Hola! Elige un tema de abajo para ver la lección con ejemplos en ${module.languages.map((language) => language.label).join(', ')}, o escribe cualquier pregunta y te la responde el tutor IA.`}
+                : `¡Hola! Elige un tema de abajo para ver la lección con ejemplos en ${module.languages.map((language) => language.label).join(', ')}, o escribe tu pregunta o pega tu código: el tutor IA te guía con pistas y retos para que lo resuelvas tú, en lugar de darte la respuesta hecha.`}
             </p>
           </div>
         </div>
@@ -437,10 +486,47 @@ function Conversation({
             const reply = entries[index + 1]
             return (
               <div className="wa-thread" key={entry.id}>
-                <OutgoingBubble>{entry.text}</OutgoingBubble>
+                <OutgoingBubble>
+                  {entry.text.includes('\n') ? <code className="wa-out-code">{entry.text}</code> : entry.text}
+                </OutgoingBubble>
                 {reply && reply.id === typingId && <TypingBubble />}
-                {reply && reply.id !== typingId && (
+                {reply && reply.id !== typingId && practiceId !== reply.id && (
                   <Reply entry={reply} chat={chat} module={module} onOpenChat={onOpenChat} />
+                )}
+                {reply && practiceId === reply.id && (
+                  <PracticeCard
+                    item={chat.items.find((item) => item.title === reply.title)}
+                    module={module}
+                    onExit={() => setPracticeId(null)}
+                  />
+                )}
+                {reply === lastEntry && reply.kind === 'answer' && reply.id !== typingId && practiceId !== reply.id && !activeExam
+                  && chat.items.find((item) => item.title === reply.title)?.code && (
+                  <div className="wa-practice">
+                    <span>Lee el código con calma y ejecútalo. Cuando lo tengas claro, ocúltalo y escríbelo tú de memoria.</span>
+                    <button type="button" className="wa-suggestion wa-suggestion-next" onClick={() => setPracticeId(reply.id)}>
+                      Ya lo revisé: escribirlo de memoria
+                    </button>
+                  </div>
+                )}
+                {reply === lastEntry && reply.kind === 'ai' && !isWaiting && !activeExam && (
+                  <div className="wa-ai-actions" aria-label="Acciones del tutor">
+                    {TUTOR_ACTIONS.map((action) => (
+                      <button key={action.label} type="button" className="wa-suggestion" onClick={() => ask(action.text, { forceAi: true })}>
+                        {action.label}
+                      </button>
+                    ))}
+                    {reply.content.includes('```') && CONVERT_LANGUAGES.map((language) => (
+                      <button
+                        key={language}
+                        type="button"
+                        className="wa-suggestion wa-suggestion-convert"
+                        onClick={() => ask(`Ahora quiero pasar este mismo algoritmo a ${language}.`, { forceAi: true })}
+                      >
+                        Pasar a {language}
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
             )
@@ -499,15 +585,18 @@ function Conversation({
             </div>
             {!finalExam && (
               <form className="wa-composer-form" onSubmit={submit}>
-                <input
+                <textarea
                   ref={inputRef}
                   className="wa-composer-field"
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
-                  placeholder={isComparison ? 'Elige un criterio o pregunta lo que quieras' : 'Elige un tema o pregunta lo que quieras'}
-                  aria-label="Escribe tu consulta"
+                  onKeyDown={onDraftKeyDown}
+                  rows={Math.min(COMPOSER_MAX_ROWS, draft.split('\n').length)}
+                  spellCheck={false}
+                  placeholder={isComparison ? 'Elige un criterio o pregunta lo que quieras' : 'Elige un tema, pregunta o pega tu código'}
+                  aria-label="Escribe tu consulta. Shift + Enter para una línea nueva"
                 />
-                <button className="wa-composer-send" type="submit" disabled={!draft.trim() || Boolean(typingId)} aria-label="Enviar">
+                <button className="wa-composer-send" type="submit" disabled={!draft.trim() || isWaiting} aria-label="Enviar">
                   <SendIcon />
                 </button>
               </form>
@@ -617,6 +706,159 @@ function ExamCard({ exam, nextLevel, onPass, onOpenChat, onRetry }) {
   )
 }
 
+const cleanOutput = (text = '') => text.split(/\r?\n/).map((line) => line.trimEnd()).join('\n').trim()
+const squash = (line) => line.replace(/\s+/g, '')
+
+// Práctica sin IA: la lección se oculta y el estudiante la reescribe de memoria.
+// Se comprueba ejecutando su código en el navegador y comparándolo con el original.
+function PracticeCard({ item, module, onExit }) {
+  const languages = module.languages.filter(({ key }) => typeof item[key] === 'string')
+  const [languageKey, setLanguageKey] = useState(languages[0].key)
+  const [drafts, setDrafts] = useState({})
+  const [status, setStatus] = useState('idle')
+  const [result, setResult] = useState(null)
+  const [revealed, setRevealed] = useState(false)
+
+  const language = languages.find(({ key }) => key === languageKey)
+  const senderClass = `wa-sender-${module.languages.indexOf(language)}`
+  const value = drafts[languageKey] ?? ''
+  const expected = item.output?.[languageKey]
+  const runnable = canRun(languageKey) && !item.fixed?.includes(languageKey)
+  const isBusy = status === 'loading' || status === 'running'
+
+  const originalLines = item[languageKey].split('\n')
+  const written = new Set(value.split('\n').map(squash))
+  const isRecalled = (line) => written.has(squash(line))
+  const codeLines = originalLines.filter((line) => line.trim())
+  const recalled = codeLines.filter(isRecalled).length
+  const hasVerdict = result && !result.error && typeof expected === 'string'
+  const outputMatches = hasVerdict && cleanOutput(result.stdout) === cleanOutput(expected)
+
+  const selectLanguage = (key) => {
+    setLanguageKey(key)
+    setResult(null)
+    setRevealed(false)
+    setStatus('idle')
+  }
+
+  const run = async () => {
+    setStatus('running')
+    const response = await runCode(languageKey, {
+      code: value,
+      stdin: item.stdin,
+      setup: item.setup?.[languageKey],
+      files: item.files?.[languageKey],
+      mainFile: item.mainFile,
+      driver: item.driver,
+      middleware: item.middleware,
+    }, setStatus)
+    setResult(response)
+    setStatus('done')
+  }
+
+  const onKeyDown = (event) => {
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && runnable && !isBusy && value.trim()) {
+      event.preventDefault()
+      run()
+    }
+  }
+
+  return (
+    <>
+      <div className="wa-bubble wa-bubble-in wa-bubble-code">
+        <span className="wa-sender wa-sender-juan">Práctica de memoria · {item.title}</span>
+        <p className="wa-practice-text">
+          {item.prompt ?? 'La lección está oculta. Escribe el código tal como lo recuerdas; no tiene que quedar idéntico, tiene que funcionar.'}
+        </p>
+        {languages.length > 1 && (
+          <div className="wa-practice-tabs" role="tablist" aria-label="Lenguaje de la práctica">
+            {languages.map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={key === languageKey}
+                className={key === languageKey ? 'wa-suggestion is-active' : 'wa-suggestion'}
+                onClick={() => selectLanguage(key)}
+                disabled={isBusy}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+        {typeof expected === 'string' && expected.trim() && (
+          <div className="wa-file">
+            <span className="wa-file-name">Tu programa debe mostrar</span>
+            <pre className="wa-code"><code>{expected.replace(/\n+$/, '')}</code></pre>
+          </div>
+        )}
+        <textarea
+          className="wa-code wa-editor wa-practice-editor"
+          value={value}
+          onChange={(event) => setDrafts((current) => ({ ...current, [languageKey]: event.target.value }))}
+          onKeyDown={onKeyDown}
+          rows={Math.max(4, value.split('\n').length)}
+          wrap="off"
+          spellCheck={false}
+          autoCapitalize="off"
+          autoCorrect="off"
+          placeholder={`Escribe aquí tu código en ${language.label}`}
+          aria-label={`Tu código en ${language.label}${runnable ? '. Ctrl + Enter para ejecutar' : ''}`}
+        />
+        {!runnable && <span className="wa-output-note">{language.label} no se puede ejecutar en el navegador: compara tu código con el original.</span>}
+        <div className="wa-practice-actions">
+          <button className="wa-run" type="button" onClick={onExit}>← Volver a la lección</button>
+          <button className="wa-run" type="button" onClick={() => setRevealed(true)} disabled={!value.trim() || revealed}>
+            Comparar con el original
+          </button>
+          {runnable && (
+            <button className="wa-run" type="button" onClick={run} disabled={isBusy || !value.trim()}>
+              <PlayIcon /> {status === 'done' ? 'Ejecutar de nuevo' : 'Ejecutar'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="wa-live" aria-live="polite">
+        {isBusy && (
+          <div className="wa-bubble wa-bubble-in wa-typing-wrap" role="status">
+            <span className="wa-typing" aria-hidden="true"><span /><span /><span /></span>
+            <span className="wa-typing-text">
+              {status === 'loading' ? loadingMessage(languageKey) : `${language.label} está escribiendo…`}
+            </span>
+          </div>
+        )}
+        {status === 'done' && result && (
+          <RunResult result={result} language={languageKey} sender={language.label} senderClass={senderClass} outputLabel={module.outputLabel} />
+        )}
+        {status === 'done' && hasVerdict && (
+          <p className={outputMatches ? 'wa-exam-feedback is-right' : 'wa-exam-feedback is-wrong'}>
+            {outputMatches
+              ? '¡Correcto! Tu programa muestra lo mismo que el de la lección.'
+              : 'Tu salida todavía no coincide con la esperada. Compárala línea por línea y vuelve a intentarlo.'}
+          </p>
+        )}
+        {revealed && (
+          <div className="wa-bubble wa-bubble-in wa-bubble-code">
+            <span className={`wa-sender ${senderClass}`}>{language.label} · código original</span>
+            <span className="wa-output-note">
+              Recordaste {recalled} de {codeLines.length} líneas tal cual. Las resaltadas son las que escribiste distinto o te faltaron; si tu programa funciona, distinto no significa mal.
+            </span>
+            <pre className="wa-code">
+              <code>
+                {originalLines.map((line, index) => (
+                  <span key={index} className={line.trim() && !isRecalled(line) ? 'wa-practice-miss' : undefined}>{line}{'\n'}</span>
+                ))}
+              </code>
+            </pre>
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
 function OutgoingBubble({ children }) {
   return (
     <div className="wa-bubble wa-bubble-out">
@@ -634,10 +876,13 @@ function TypingBubble() {
   )
 }
 
-function JuanBubble({ children }) {
+function JuanBubble({ children, copyText }) {
   return (
     <div className="wa-bubble wa-bubble-in">
-      <span className="wa-sender wa-sender-juan">Juan de la Cruz</span>
+      <span className="wa-code-header">
+        <span className="wa-sender wa-sender-juan">Juan de la Cruz</span>
+        {copyText && <CopyButton text={copyText} />}
+      </span>
       {children}
     </div>
   )
@@ -649,8 +894,12 @@ function Reply({ entry, chat, module, onOpenChat }) {
   if (entry.kind === 'ai' || entry.kind === 'ai-error') {
     return (
       <div className="wa-bubble wa-bubble-in wa-ai-reply" role={entry.kind === 'ai-error' ? 'alert' : undefined}>
-        <span className="wa-sender wa-sender-juan">{entry.kind === 'ai-error' ? 'Asistente de aprendizaje · error' : 'Tutor IA'}</span>
+        <span className="wa-code-header">
+          <span className="wa-sender wa-sender-juan">{entry.kind === 'ai-error' ? 'Asistente de aprendizaje · error' : 'Tutor IA'}</span>
+          {entry.kind === 'ai' && !entry.streaming && <CopyButton text={entry.content} />}
+        </span>
         {entry.kind === 'ai' ? <AiContent text={entry.content} /> : <p>{entry.content}</p>}
+        {entry.streaming && <span className="wa-caret" aria-hidden="true" />}
         {entry.kind === 'ai-error' && <span className="wa-output-note">Comprueba que el servidor esté activo y que tenga configurada GROQ_API_KEY.</span>}
       </div>
     )
@@ -674,7 +923,7 @@ function Reply({ entry, chat, module, onOpenChat }) {
   if (chat.id === COMPARISON_ID) {
     const { languages } = module.comparison
     return (
-      <JuanBubble>
+      <JuanBubble copyText={item.values.map((value, index) => `${languages[index]}: ${value}`).join('\n')}>
         <dl className="wa-compare">
           {item.values.map((value, index) => (
             <div key={languages[index]}>
@@ -690,7 +939,7 @@ function Reply({ entry, chat, module, onOpenChat }) {
   return (
     <>
       {item.prompt && (
-        <JuanBubble>
+        <JuanBubble copyText={item.prompt}>
           <div className="wa-exercise-prompt">
             <strong>Reto</strong>
             <p>{item.prompt}</p>
@@ -720,13 +969,19 @@ function Reply({ entry, chat, module, onOpenChat }) {
         />
       ) : item.session ? (
         <div className="wa-bubble wa-bubble-in wa-bubble-code">
-          <span className={`wa-sender wa-sender-${index}`}>{label}</span>
+          <span className="wa-code-header">
+            <span className={`wa-sender wa-sender-${index}`}>{label}</span>
+            <CopyButton text={item[key]} />
+          </span>
           <pre className="wa-code wa-session"><code>{item[key]}</code></pre>
           {item.note && <span className="wa-output-note">{item.note}</span>}
         </div>
       ) : (
         <div className="wa-bubble wa-bubble-in">
-          <span className={`wa-sender wa-sender-${index}`}>{label}</span>
+          <span className="wa-code-header">
+            <span className={`wa-sender wa-sender-${index}`}>{label}</span>
+            <CopyButton text={item[key]} />
+          </span>
           <p className="wa-text"><Linkify text={item[key]} /></p>
         </div>
       )}

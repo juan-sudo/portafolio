@@ -242,6 +242,24 @@ h1, h2, h3 { margin-top: 0; font-family: Manrope, sans-serif; letter-spacing: -.
 .wa-suggestion-done { padding: .35rem 0; color: var(--wa-muted); font-size: .85rem; }
 .wa-composer-form { display: flex; gap: .7rem; align-items: center; }
 .wa-composer-field { flex: 1; min-width: 0; padding: .65rem 1rem; color: var(--wa-text); background: var(--wa-sidebar); border: none; border-radius: .6rem; font: inherit; font-size: .92rem; outline: none; }
+textarea.wa-composer-field { resize: none; line-height: 1.4; }
+.wa-composer-form:has(textarea) { align-items: flex-end; }
+.wa-bubble-out { overflow-wrap: anywhere; white-space: pre-wrap; }
+.wa-out-code { min-width: 0; overflow-x: auto; font-family: 'Fira Code', 'JetBrains Mono', Consolas, monospace; font-size: .8rem; font-weight: 400; line-height: 1.55; white-space: pre; }
+.wa-ai-actions { display: flex; flex-wrap: wrap; gap: .4rem; align-self: flex-start; max-width: min(78%, 620px); animation: wa-pop .25s ease both; }
+.wa-practice { display: flex; flex-direction: column; gap: .45rem; align-items: flex-start; align-self: flex-start; max-width: min(78%, 620px); color: var(--wa-muted); font-size: .82rem; animation: wa-pop .25s ease both; }
+.wa-practice .wa-suggestion { white-space: normal; text-align: left; }
+.wa-practice-text { margin: 0; white-space: pre-line; }
+.wa-practice-tabs { display: flex; flex-wrap: wrap; gap: .4rem; }
+.wa-practice-tabs .is-active { color: #fff; background: var(--wa-accent); border-color: var(--wa-accent); }
+.wa-practice-editor { border-color: var(--wa-line); }
+.wa-practice-actions { display: flex; flex-wrap: wrap; gap: .2rem .8rem; justify-content: flex-end; }
+.wa-practice-miss { background: rgba(234, 67, 53, .18); }
+.wa-copy { flex-shrink: 0; margin-left: auto; padding: 0; color: var(--wa-muted); background: none; border: none; font-family: inherit; font-size: .72rem; font-weight: 700; cursor: pointer; }
+.wa-copy:hover { color: var(--wa-accent); text-decoration: underline; }
+.wa-caret { align-self: flex-start; width: .5rem; height: 1rem; background: var(--wa-accent); border-radius: 1px; animation: wa-caret 1s steps(2, start) infinite; }
+@keyframes wa-caret { to { visibility: hidden; } }
+.wa-suggestion-convert { color: var(--wa-muted); }
 .wa-composer-field::placeholder { color: var(--wa-muted); }
 .wa-composer-field:focus { box-shadow: 0 0 0 2px var(--wa-accent); }
 .wa-composer-send { display: grid; flex-shrink: 0; width: 42px; aspect-ratio: 1; padding: 0; place-items: center; color: #fff; background: var(--wa-accent); border: none; border-radius: 50%; cursor: pointer; transition: opacity .2s, transform .2s; }

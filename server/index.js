@@ -1,6 +1,9 @@
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
+import { createGroq } from '@ai-sdk/groq'
+import { generateText, Output, streamText } from 'ai'
+import { z } from 'zod'
 
 const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'gpt-oss:120b'
@@ -11,6 +14,18 @@ const PORT = process.env.PORT || 8787
 const MAX_REQUESTS_PER_MINUTE = 12
 
 const SYSTEM_PROMPT = 'Eres el asistente virtual del portafolio de Juan de la Cruz Huamani, un desarrollador full stack. Responde de forma clara, breve y amigable en español, en texto plano sin markdown (sin asteriscos, sin almohadillas, sin listas con guiones; usa oraciones u oraciones separadas por saltos de línea). Puedes responder preguntas generales de cualquier tema, pero cuando te pregunten sobre Juan, su experiencia, tecnologías o proyectos, usa EXCLUSIVAMENTE la información verificada que se te entrega a continuación; nunca inventes tecnologías, empleos o proyectos que no estén ahí.'
+
+const groq = createGroq({ apiKey: GROQ_API_KEY })
+
+const examSchema = z.object({
+  questions: z.array(z.object({
+    prompt: z.string(),
+    code: z.string(),
+    options: z.array(z.string()),
+    answerIndex: z.number(),
+    explanation: z.string(),
+  })),
+})
 
 const app = express()
 app.use(cors({ origin: ALLOWED_ORIGIN }))
@@ -102,8 +117,15 @@ app.post('/api/learn-chat', async (req, res) => {
   }
 
   const systemPrompt = [
-    'Eres un ingeniero de software senior que enseña programación a principiantes. Tu tono es profesional, preciso y cercano: sin relleno, sin saludos largos y sin repetir la pregunta.',
-    'Responde siempre en español neutro y sigue esta estructura, omitiendo las partes que no apliquen: 1) Respuesta directa en una o dos oraciones. 2) Explicación del porqué, paso a paso, definiendo cada término técnico la primera vez que aparece. 3) Un ejemplo mínimo en un bloque de código, con el resultado esperado. 4) Errores comunes o buenas prácticas usadas en proyectos reales. 5) Una forma breve de comprobarlo o practicarlo.',
+    'Eres un ingeniero de software senior que hace de tutor de programación para principiantes. Tu objetivo no es entregar respuestas, sino que el estudiante aprenda de verdad: que piense, escriba código y pueda explicar lo que hizo. Tu tono es profesional, preciso y cercano: sin relleno, sin saludos largos y sin repetir la pregunta. Equivocarse es parte normal de aprender; nunca hagas sentir mal al estudiante. Responde siempre en español neutro.',
+    'Antes de responder, identifica qué tipo de mensaje recibiste y actúa según el caso:',
+    'A) Código con un error o respuesta incorrecta a un reto: guía, no resuelvas. NO escribas el código corregido. Indica dónde mirar (número de línea o fragmento exacto) y haz una o dos preguntas guía, por ejemplo: «Revisa la línea 4. ¿Qué tipo de dato devuelve esa función y qué esperaba la variable?». Sube el nivel de ayuda solo si el estudiante sigue atascado: primera pista, una pregunta que lo haga observar; segunda pista, nombra el concepto implicado; tercera pista, describe el cambio con palabras, sin código. Muestra la solución completa únicamente si la pide de forma explícita («muéstrame la solución», «me rindo») o tras tres intentos fallidos; en ese caso explica cada cambio y proponle una variante para que la resuelva sin ayuda.',
+    'B) Pregunta sobre un concepto: enseña primero la lógica, en lenguaje llano o en pasos numerados independientes del lenguaje, definiendo cada término técnico la primera vez que aparece. Después da un ejemplo mínimo en un bloque de código, en el lenguaje del módulo o el que use el estudiante, con el resultado esperado. Termina con un micro-reto relacionado que se pueda resolver en 5 a 10 líneas y responder en este mismo chat. No incluyas la solución del reto.',
+    'C) Pregunta puntual u operativa (un comando, una instalación, la sintaxis de algo concreto, un error del entorno): responde de forma directa y completa. No conviertas en interrogatorio lo que solo requiere un dato.',
+    'D) Respuesta correcta a un reto: confirma por qué es correcta señalando algo concreto de su código y menciona una mejora si existe. Cuando el estudiante haya resuelto dos o tres retos de un tema, o al cerrar un concepto importante, pídele: «Para asegurarnos de que lo dominas, explícamelo con tus palabras como si yo fuera un principiante».',
+    'E) El estudiante explica un concepto con sus palabras: evalúa la explicación. Di qué parte es correcta, qué es impreciso o falta, y haz una pregunta que lo lleve a completar el hueco. No reescribas tú la explicación completa.',
+    'F) El estudiante quiere pasar un algoritmo a otro lenguaje: recuérdale que la lógica no cambia, enumera de dos a cuatro diferencias de sintaxis que necesita para ese lenguaje (declaración de variables, tipos, bucles, impresión) y pídele que lo escriba él; corrige su intento con pistas como en el caso A. Si pide ver la traducción directamente, muéstrala junto al original y señala qué cambió. Si no hay equivalente directo (por ejemplo, algo propio de un framework), explica el concepto equivalente.',
+    'Cierra cada mensaje con una sola pregunta o un solo reto, nunca varios a la vez. Si el estudiante pide una pista, da solo la siguiente pista de la escalera, no la solución.',
     'Usa la terminología correcta de la industria (por ejemplo: prompt de la terminal, intérprete, argumento, variable de entorno) y aclara las diferencias entre sistemas operativos o versiones cuando sean relevantes.',
     'Prioriza la exactitud: si no estás seguro de algo, dilo; si la pregunta es ambigua, pide una aclaración concreta. No inventes datos del curso ni presentes suposiciones como hechos.',
     'Responde cualquier pregunta del estudiante, aunque no esté en las lecciones del módulo o trate de otro lenguaje, herramienta o tema: nunca contestes que algo está fuera del curso. El contexto del módulo es solo una referencia para adaptar el nivel de la explicación y, cuando ayude, relacionarla con lo que el estudiante está viendo. Si pregunta por un tema de las lecciones, explícalo con tus propias palabras y con más profundidad que la lección.',
@@ -113,37 +135,43 @@ app.post('/api/learn-chat', async (req, res) => {
       : '',
   ].filter(Boolean).join('\n\n')
 
+  // La respuesta se envía como texto plano a medida que el modelo la escribe
+  let streamError = null
+  const result = streamText({
+    model: groq(GROQ_MODEL),
+    instructions: systemPrompt,
+    messages: safeMessages,
+    temperature: 0.4,
+    maxOutputTokens: 3000,
+    // Menos razonamiento previo: la primera palabra llega antes y el tutor no necesita más
+    providerOptions: { groq: { reasoningEffort: 'low' } },
+    onError({ error }) {
+      streamError = error
+      console.error('Groq learning assistant error:', error)
+    },
+  })
+
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${GROQ_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages: [{ role: 'system', content: systemPrompt }, ...safeMessages],
-        temperature: 0.4,
-        max_tokens: 3000,
-        stream: false,
-      }),
-    })
-
-    if (!response.ok) {
-      const text = await response.text()
-      console.error('Groq learning assistant error:', response.status, text)
-      return res.status(502).json({ error: 'El asistente de aprendizaje no respondió correctamente.' })
+    let started = false
+    for await (const chunk of result.textStream) {
+      if (!chunk) continue
+      if (!started) {
+        started = true
+        res.writeHead(200, {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'no-cache',
+          'X-Accel-Buffering': 'no', // evita que nginx retenga la respuesta hasta el final
+        })
+      }
+      res.write(chunk)
     }
-
-    const data = await response.json()
-    const reply = data.choices?.[0]?.message?.content
-    if (typeof reply !== 'string' || !reply.trim()) {
-      console.error('Groq learning assistant returned an empty response.')
-      return res.status(502).json({ error: 'El asistente de aprendizaje devolvió una respuesta vacía.' })
-    }
-    return res.json({ reply })
+    if (started) return res.end()
+    if (streamError) return res.status(502).json({ error: 'El asistente de aprendizaje no respondió correctamente.' })
+    console.error('Groq learning assistant returned an empty response.')
+    return res.status(502).json({ error: 'El asistente de aprendizaje devolvió una respuesta vacía.' })
   } catch (error) {
     console.error('Learning assistant proxy error:', error)
+    if (res.headersSent) return res.end()
     return res.status(502).json({ error: 'No se pudo contactar al asistente de aprendizaje.' })
   }
 })
@@ -180,38 +208,16 @@ app.post('/api/learn-exam', async (req, res) => {
   ].filter(Boolean).join('\n\n')
 
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${GROQ_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Contenido del nivel:\n${context.slice(0, 9000)}` },
-        ],
-        temperature: 0.9,
-        max_tokens: 4000,
-        response_format: { type: 'json_object' },
-        stream: false,
-      }),
+    // El esquema obliga al modelo a devolver la forma esperada; si no la cumple, generateText lanza un error
+    const { output: parsed } = await generateText({
+      model: groq(GROQ_MODEL),
+      output: Output.object({ schema: examSchema }),
+      instructions: systemPrompt,
+      prompt: `Contenido del nivel:
+${context.slice(0, 9000)}`,
+      temperature: 0.9,
+      maxOutputTokens: 4000,
     })
-
-    if (!response.ok) {
-      const text = await response.text()
-      console.error('Groq exam error:', response.status, text)
-      return res.status(502).json({ error: 'El generador de exámenes no respondió correctamente.' })
-    }
-
-    const data = await response.json()
-    let parsed
-    try {
-      parsed = JSON.parse(data.choices?.[0]?.message?.content ?? '')
-    } catch {
-      parsed = null
-    }
 
     const text = (value) => (typeof value === 'string' ? value.trim() : '')
     const questions = (Array.isArray(parsed?.questions) ? parsed.questions : [])

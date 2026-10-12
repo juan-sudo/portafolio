@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { explainError } from '../../lib/runners/explain'
 import { loadingMessage, runCode } from '../../lib/runners'
+import { CopyButton } from '../ui/CopyButton'
 import { PlayIcon } from '../ui/Icons'
 
 const EXAMPLE_DELAY_MS = 600
@@ -68,6 +69,7 @@ export function CodeMessage({ language, runnable, sender, senderClass, code, out
               Restaurar original
             </button>
           )}
+          <CopyButton text={value} />
         </span>
         {files && Object.entries(files).map(([name, content]) => (
           <div className="wa-file" key={name}>
@@ -144,14 +146,17 @@ export function CodeMessage({ language, runnable, sender, senderClass, code, out
   )
 }
 
-function RunResult({ result, language, sender, senderClass, note, outputLabel }) {
+export function RunResult({ result, language, sender, senderClass, note, outputLabel }) {
   const { screen, notes = [], warnings = [], error } = result
   const stdout = result.stdout?.replace(/\n+$/, '')
   const hasOutput = Boolean(stdout || screen)
 
   return (
     <div className="wa-bubble wa-bubble-in wa-bubble-output">
-      <span className={`wa-sender ${senderClass}`}>{sender} · {outputLabel}</span>
+      <span className="wa-code-header">
+        <span className={`wa-sender ${senderClass}`}>{sender} · {outputLabel}</span>
+        {hasOutput && <CopyButton text={[stdout, screen].filter(Boolean).join('\n\n')} />}
+      </span>
       {note && <span className="wa-output-note">{note}</span>}
       {notes.map((text) => <span className="wa-output-note" key={text}>{text}</span>)}
       {stdout && (
